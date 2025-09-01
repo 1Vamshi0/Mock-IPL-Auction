@@ -1,12 +1,23 @@
+// server.js
 const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
 const fs = require('fs');
 const csv = require('csv-parser');
+const path = require('path');
 
 const app = express();
 const server = http.createServer(app);
-const io = socketIo(server, { cors: { origin: '*' } });
+const io = socketIo(server, { 
+  cors: { 
+    origin: process.env.NODE_ENV === 'production' ? false : '*',
+    methods: ['GET', 'POST']
+  } 
+});
+
+// Static assets
+app.use(express.static(path.join(__dirname, 'client', 'dist')));
+app.use('/photos', express.static(path.join(__dirname, 'public', 'photos')));
 
 let players = [];
 let unsold = [];
@@ -16,21 +27,27 @@ let currentBid = 0;
 let currentBidTeam = null;
 let isReAuction = false;
 let reAuctionUnsold = [];
+let auctioneerConnected = false;
+let connectedTeams = new Set();
+
 let teams = Array.from({ length: 6 }, (_, i) => ({
   id: i + 1,
   name: `Team ${i + 1}`,
-  budget: 1000000000, // 100 Cr in rupees
-  remaining: 1000000000,
+  budget: 450000000, // 100 Cr
+  remaining: 450000000,
   spent: 0,
   players: [],
   synergy: 0,
+  isConnected: false,
+  socketId: null
 }));
 
+// Synergy rules
 const synergyRules = {
   positive: {
     'AO-AN': 20,
     'BA-FI': 15,
-    'AN-WK-B': 15,
+    'AN-WK': 15,
     'BA-BO': 20,
     'PA-SP': 25,
     'PA-PA': 10,
@@ -44,163 +61,541 @@ const synergyRules = {
     'FI-FI': -10,
     'SP-SP': -5,
     'BA-BA': -5,
-    'WK-B-WK-B': -10,
+    'WK-WK': -10,
     'CS-CS': -10,
     'BO-BO': -5,
   },
 };
 
-// Load and shuffle players
-fs.createReadStream('players.csv')
-  .pipe(csv())
-  .on('data', (row) => players.push({
-    sNo: row['S.No'],
-    name: row.Name,
-    role: row.Role,
-    archetype: row.Archetype,
-    baseScore: parseInt(row.Base_Score) || 0,
-    basePrice: parseInt(row.Base_Price) || 0, // In rupees, no multiplication
-  }))
-  .on('error', (err) => console.error('CSV Load Error:', err.message))
-  .on('end', () => {
-    if (players.length === 0) {
-      console.error('No players loaded from CSV.');
-    } else {
-      players = players.sort(() => Math.random() - 0.5);
-      sets = [players.slice(0, 24), players.slice(24, 48), players.slice(48, 72)];
-      console.log('Players loaded and shuffled:', players.length);
-      emitUpdate();
-    }
-  });
+// Validation helpers
+function isValidTeamId(teamId) {
+  return Number.isInteger(teamId) && teamId >= 1 && teamId <= 6;
+}
 
-// Synergy calculation (per pair, not unique)
+function sanitizeString(str) {
+  return str ? str.toString().trim() : '';
+}
+
+// Load players from CSV
+function loadPlayers() {
+  const csvPath = process.env.PLAYERS_CSV || path.join(__dirname, 'players.csv');
+
+  if (!fs.existsSync(csvPath)) {
+    console.error(`CSV file not found at: ${csvPath}`);
+    console.error('Please ensure players.csv exists in the project directory');
+    process.exit(1);
+  }
+
+  const requiredColumns = ['S.No', 'Name', 'Role', 'Archetype', 'Base_Score', 'Base_Price'];
+  let headerValidated = false;
+
+  fs.createReadStream(csvPath)
+    .pipe(csv())
+    .on('headers', (headers) => {
+      const missingColumns = requiredColumns.filter(col => !headers.includes(col));
+      if (missingColumns.length > 0) {
+        console.error(`Missing required columns in CSV: ${missingColumns.join(', ')}`);
+        process.exit(1);
+      }
+      headerValidated = true;
+    })
+    .on('data', (row) => {
+      if (!headerValidated) return;
+      
+      try {
+        const player = {
+          sNo: sanitizeString(row['S.No']),
+          name: sanitizeString(row.Name),
+          role: sanitizeString(row.Role),
+          archetype: sanitizeString(row.Archetype),
+          baseScore: parseInt(row.Base_Score) || 0,
+          // CSV base price is in Lakhs → convert to rupees
+          basePrice: (parseInt(row.Base_Price) || 0) * 100000,
+        };
+        
+        // Validate required fields
+        if (player.name && player.archetype && player.baseScore > 0 && player.basePrice > 0) {
+          players.push(player);
+        } else {
+          console.warn(`Skipping invalid player row: ${JSON.stringify(row)}`);
+        }
+      } catch (error) {
+        console.error(`Error processing player row: ${error.message}`);
+      }
+    })
+    .on('error', (err) => {
+      console.error('CSV Load Error:', err.message);
+      process.exit(1);
+    })
+    .on('end', () => {
+      if (players.length === 0) {
+        console.error('No valid players loaded from CSV.');
+        process.exit(1);
+      }
+      
+      if (players.length < 72) {
+        console.warn(`Warning: Only ${players.length} players loaded. Expected at least 72 for full auction.`);
+      }
+      
+      // Shuffle and divide into sets
+      players = players.sort(() => Math.random() - 0.5);
+      const playersPerSet = Math.ceil(players.length / 3);
+      sets = [
+        players.slice(0, playersPerSet), 
+        players.slice(playersPerSet, playersPerSet * 2), 
+        players.slice(playersPerSet * 2)
+      ];
+      
+      console.log(`Successfully loaded ${players.length} players`);
+      console.log(`Sets: ${sets[0].length}, ${sets[1].length}, ${sets[2].length}`);
+      emitUpdate();
+    });
+}
+
+// Synergy calculation with better error handling
 function calculateSynergy(roster) {
-  let baseTotal = roster.reduce((sum, p) => sum + p.baseScore, 0);
-  let positive = 0, negative = 0;
+  if (!Array.isArray(roster) || roster.length === 0) return 0;
+  
+  let baseTotal = 0;
+  let positive = 0;
+  let negative = 0;
+
+  // Calculate base total safely
+  for (const player of roster) {
+    if (player && typeof player.baseScore === 'number') {
+      baseTotal += player.baseScore;
+    }
+  }
+
+  // Calculate synergy bonuses/penalties
   for (let i = 0; i < roster.length; i++) {
     for (let j = i + 1; j < roster.length; j++) {
-      let arch1 = roster[i].archetype, arch2 = roster[j].archetype;
-      if (arch1 > arch2) [arch1, arch2] = [arch2, arch1]; // Normalize key
+      const player1 = roster[i];
+      const player2 = roster[j];
+      
+      if (!player1?.archetype || !player2?.archetype) continue;
+      
+      let arch1 = sanitizeString(player1.archetype);
+      let arch2 = sanitizeString(player2.archetype);
+      
+      if (!arch1 || !arch2) continue;
+      
+      // Ensure consistent ordering for lookup
+      if (arch1 > arch2) [arch1, arch2] = [arch2, arch1];
       const key = `${arch1}-${arch2}`;
+      
       positive += synergyRules.positive[key] || 0;
       negative += synergyRules.negative[key] || 0;
     }
   }
+  
   return baseTotal + positive + negative;
 }
 
-// Get current player
+// Auction helpers
 function getCurrentPlayer() {
   if (isReAuction) {
     if (currentPlayerIndex >= reAuctionUnsold.length) return null;
     return reAuctionUnsold[currentPlayerIndex];
   } else {
-    if (currentPlayerIndex >= 72) return null;
-    const setIndex = Math.floor(currentPlayerIndex / 24);
-    const indexInSet = currentPlayerIndex % 24;
+    const totalPlayers = players.length;
+    if (currentPlayerIndex >= totalPlayers) return null;
+    
+    const setIndex = Math.floor(currentPlayerIndex / Math.ceil(totalPlayers / 3));
+    const indexInSet = currentPlayerIndex % Math.ceil(totalPlayers / 3);
+    
+    if (!sets[setIndex] || !sets[setIndex][indexInSet]) return null;
     return sets[setIndex][indexInSet];
   }
 }
 
-// Get bid increment
 function getIncrement(bid) {
-  return bid < 10000000 ? 2000000 : 5000000; // 20 Lakhs or 0.5 Cr
+  if (bid < 5000000) return 500000;     // +50L
+  if (bid < 10000000) return 1000000;   // +1Cr
+  if (bid < 20000000) return 2000000;   // +2Cr
+  return 5000000;                       // +5Cr
 }
 
-// Emit update
+// Emit state updates
 function emitUpdate() {
-  const updateData = { teams, currentPlayer: getCurrentPlayer(), currentBid, currentBidTeam, isReAuction };
-  console.log('Emitting update:', updateData);
-  io.emit('update', updateData);
+  try {
+    const currentPlayer = getCurrentPlayer();
+    const computeNextFrom = currentBid || (currentPlayer ? currentPlayer.basePrice : 0);
+    const nextIncrement = currentPlayer ? getIncrement(computeNextFrom) : 0;
+    const totalPlayers = isReAuction ? reAuctionUnsold.length : players.length;
+
+    const baseUpdateData = {
+      teams: teams.map(t => ({ 
+        ...t, 
+        socketId: undefined,
+        synergy: Number.isFinite(t.synergy) ? t.synergy : 0
+      })),
+      currentPlayer,
+      currentBid,
+      currentBidTeam,
+      isReAuction,
+      currentPlayerIndex,
+      totalPlayers,
+      connectedTeams: Array.from(connectedTeams),
+      auctioneerConnected,
+      nextIncrement
+    };
+
+    io.to('auctioneer').emit('update', baseUpdateData);
+    
+    teams.forEach(team => {
+      if (team.socketId) {
+        io.to(team.socketId).emit('update', {
+          ...baseUpdateData,
+          myTeam: {
+            ...team,
+            socketId: undefined,
+            synergy: Number.isFinite(team.synergy) ? team.synergy : 0
+          },
+        });
+      }
+    });
+    
+    io.to('observers').emit('update', baseUpdateData);
+
+    console.log(
+      'Update emitted - Current Player:',
+      currentPlayer?.name || 'None',
+      '| Current Bid:',
+      currentBid,
+      '| Next +',
+      nextIncrement
+    );
+  } catch (error) {
+    console.error('Error in emitUpdate:', error);
+  }
 }
 
-// HTTP health check
-app.get('/', (req, res) => {
-  res.send('CPL Auction Game Server is running');
+function validateBid(teamId, newBid) {
+  if (!isValidTeamId(teamId)) {
+    return { valid: false, reason: 'Invalid team ID' };
+  }
+  
+  const team = teams[teamId - 1];
+  const player = getCurrentPlayer();
+  
+  if (!player) {
+    return { valid: false, reason: 'No player available' };
+  }
+  
+  if (team.players.length >= 8) {
+    return { valid: false, reason: 'Team roster is full (8 players)' };
+  }
+  
+  if (team.remaining < newBid) {
+    return { valid: false, reason: 'Insufficient team budget' };
+  }
+  
+  if (newBid <= 0) {
+    return { valid: false, reason: 'Bid must be positive' };
+  }
+  
+  return { valid: true };
+}
+
+// HTTP routes
+app.get('/health', (req, res) => {
+  res.json({
+    status: 'ok',
+    playersLoaded: players.length,
+    currentPlayer: getCurrentPlayer()?.name || 'None',
+    isReAuction,
+    auctioneerConnected,
+    connectedTeams: Array.from(connectedTeams).length
+  });
 });
 
+// Socket handling
 io.on('connection', (socket) => {
   console.log('Client connected:', socket.id);
-  console.log('Current state - Teams:', teams.length, 'Current Player:', getCurrentPlayer()?.name || 'None');
-  emitUpdate(); // Initial update
 
-  socket.on('join', (teamId) => {
-    console.log('Client joining team:', teamId);
+  socket.on('joinAsAuctioneer', () => {
+    console.log('Auctioneer connected:', socket.id);
+    socket.join('auctioneer');
+    auctioneerConnected = true;
+    socket.isAuctioneer = true;
+    emitUpdate();
+    io.emit('connectionStatus', { 
+      auctioneerConnected, 
+      connectedTeams: Array.from(connectedTeams) 
+    });
+  });
+
+  socket.on('joinAsTeam', (teamId) => {
+    console.log(`Team ${teamId} attempting to connect:`, socket.id);
+    
+    if (!isValidTeamId(teamId)) {
+      socket.emit('error', 'Invalid team ID');
+      return;
+    }
+
+    const existingTeam = teams[teamId - 1];
+    if (existingTeam.socketId && existingTeam.socketId !== socket.id) {
+      io.to(existingTeam.socketId).emit('forceDisconnect', 'Another device connected for your team');
+    }
+    
+    socket.join(`team-${teamId}`);
     socket.teamId = teamId;
+    teams[teamId - 1].isConnected = true;
+    teams[teamId - 1].socketId = socket.id;
+    connectedTeams.add(teamId);
+    
+    console.log(`Team ${teamId} connected successfully`);
+    emitUpdate();
+    io.emit('connectionStatus', { 
+      auctioneerConnected, 
+      connectedTeams: Array.from(connectedTeams) 
+    });
+  });
+
+  socket.on('joinAsObserver', () => {
+    console.log('Observer connected:', socket.id);
+    socket.join('observers');
+    socket.isObserver = true;
     emitUpdate();
   });
 
-  socket.on('test', (message) => {
-    console.log('Test message received:', message);
-    socket.emit('testResponse', 'Hello from server!');
-  });
+  // Auctioneer-only bidding
+  socket.on('placeBidForTeam', (teamId) => {
+    if (!socket.isAuctioneer) {
+      socket.emit('error', 'Only auctioneer can place bids');
+      return;
+    }
 
-  socket.on('placeBid', (teamId) => {
-    const team = teams[teamId - 1];
+    if (!isValidTeamId(teamId)) {
+      socket.emit('error', 'Invalid team ID');
+      return;
+    }
+
     const player = getCurrentPlayer();
-    if (!player || team.players.length >= 8) return;
+    if (!player) {
+      socket.emit('error', 'No player available for bidding');
+      return;
+    }
 
     const newBid = currentBid === 0 ? player.basePrice : currentBid + getIncrement(currentBid);
-    if (team.remaining < newBid) return;
+    const validation = validateBid(teamId, newBid);
+    
+    if (!validation.valid) {
+      socket.emit('error', `Cannot place bid for Team ${teamId}: ${validation.reason}`);
+      return;
+    }
 
     currentBid = newBid;
     currentBidTeam = teamId;
+
+    console.log(`Auctioneer placed bid: Team ${teamId}, Amount: ₹${(newBid/100000).toFixed(2)}L, Player: ${player.name}`);
+
+    io.emit('bidPlaced', {
+      teamId,
+      teamName: teams[teamId - 1].name,
+      amount: newBid,
+      playerName: player.name,
+      placedByAuctioneer: true
+    });
+
     emitUpdate();
   });
 
   socket.on('soldPlayer', () => {
-    if (!currentBidTeam || currentBid === 0) return;
+    if (!socket.isAuctioneer) {
+      socket.emit('error', 'Only auctioneer can mark players as sold');
+      return;
+    }
+    
+    if (!currentBidTeam || currentBid === 0) {
+      socket.emit('error', 'No valid bid to complete sale');
+      return;
+    }
+
+    if (!isValidTeamId(currentBidTeam)) {
+      socket.emit('error', 'Invalid bidding team');
+      return;
+    }
+
     const team = teams[currentBidTeam - 1];
     const player = getCurrentPlayer();
-    if (!player || team.remaining < currentBid) return;
+    
+    if (!player || !team) {
+      socket.emit('error', 'Invalid player or team');
+      return;
+    }
+    
+    if (team.remaining < currentBid) {
+      socket.emit('error', 'Insufficient team budget');
+      return;
+    }
 
+    // Complete the sale
     team.remaining -= currentBid;
     team.spent += currentBid;
     team.players.push({ ...player, boughtPrice: currentBid });
     team.synergy = calculateSynergy(team.players);
+
+    console.log(`Player sold: ${player.name} to Team ${currentBidTeam} for ₹${(currentBid/100000).toFixed(2)}L`);
+
+    io.emit('playerSold', {
+      player: { ...player, boughtPrice: currentBid },
+      teamId: currentBidTeam,
+      teamName: team.name,
+      amount: currentBid
+    });
+
+    // Move to next player
     currentPlayerIndex++;
     currentBid = 0;
     currentBidTeam = null;
-    if (currentPlayerIndex % 24 === 0 && !isReAuction) io.emit('setSummary', teams);
-    if (currentPlayerIndex >= 72 && !isReAuction) {
+
+    // Check for set completion or auction end
+    const playersPerSet = Math.ceil(players.length / 3);
+    if (currentPlayerIndex % playersPerSet === 0 && !isReAuction) {
+      io.emit('setSummary', teams);
+    }
+    
+    if (currentPlayerIndex >= players.length && !isReAuction) {
       handleReAuction();
     } else if (isReAuction && currentPlayerIndex >= reAuctionUnsold.length) {
       declareWinner();
     }
+    
     emitUpdate();
   });
 
   socket.on('skipPlayer', () => {
+    if (!socket.isAuctioneer) {
+      socket.emit('error', 'Only auctioneer can skip players');
+      return;
+    }
+
     const player = getCurrentPlayer();
-    if (player) unsold.push(player);
+    if (player) {
+      unsold.push(player);
+      console.log(`Player skipped: ${player.name}`);
+      io.emit('playerSkipped', { 
+        player, 
+        reason: 'No bids received' 
+      });
+    }
+
     currentPlayerIndex++;
     currentBid = 0;
     currentBidTeam = null;
-    if (currentPlayerIndex % 24 === 0 && !isReAuction) io.emit('setSummary', teams);
-    if (currentPlayerIndex >= 72 && !isReAuction) {
+
+    const playersPerSet = Math.ceil(players.length / 3);
+    if (currentPlayerIndex % playersPerSet === 0 && !isReAuction) {
+      io.emit('setSummary', teams);
+    }
+    
+    if (currentPlayerIndex >= players.length && !isReAuction) {
       handleReAuction();
     } else if (isReAuction && currentPlayerIndex >= reAuctionUnsold.length) {
       declareWinner();
     }
+    
     emitUpdate();
   });
+
+  socket.on('resetBid', () => {
+    if (!socket.isAuctioneer) {
+      socket.emit('error', 'Only auctioneer can reset bids');
+      return;
+    }
+
+    const player = getCurrentPlayer();
+    if (player) {
+      currentBid = 0;
+      currentBidTeam = null;
+      console.log(`Bid reset for player: ${player.name}`);
+      io.emit('bidReset', { 
+        playerName: player.name, 
+        message: 'Bidding reset to base price' 
+      });
+      emitUpdate();
+    }
+  });
+
+  socket.on('disconnect', () => {
+    console.log('Client disconnected:', socket.id);
+
+    if (socket.isAuctioneer) {
+      auctioneerConnected = false;
+      io.emit('connectionStatus', { 
+        auctioneerConnected, 
+        connectedTeams: Array.from(connectedTeams) 
+      });
+    }
+
+    if (socket.teamId) {
+      const teamIndex = socket.teamId - 1;
+      if (teams[teamIndex] && teams[teamIndex].socketId === socket.id) {
+        teams[teamIndex].isConnected = false;
+        teams[teamIndex].socketId = null;
+        connectedTeams.delete(socket.teamId);
+        io.emit('connectionStatus', { 
+          auctioneerConnected, 
+          connectedTeams: Array.from(connectedTeams) 
+        });
+      }
+    }
+    emitUpdate();
+  });
+
+  emitUpdate();
 });
 
 function handleReAuction() {
   const needyTeams = teams.filter(t => t.players.length < 8);
-  if (needyTeams.length === 0) {
+  if (needyTeams.length === 0 || unsold.length === 0) {
+    console.log('No teams need more players or no unsold players available');
     declareWinner();
     return;
   }
-  reAuctionUnsold = unsold.sort(() => Math.random() - 0.5);
+
+  console.log(`Starting re-auction with ${unsold.length} unsold players`);
+  reAuctionUnsold = [...unsold].sort(() => Math.random() - 0.5);
   currentPlayerIndex = 0;
   isReAuction = true;
+
+  io.emit('reAuctionStart', {
+    unsoldCount: reAuctionUnsold.length,
+    needyTeams: needyTeams.map(t => t.name)
+  });
   emitUpdate();
 }
 
 function declareWinner() {
-  teams.sort((a, b) => b.synergy - a.synergy || b.remaining - a.remaining);
-  io.emit('winner', teams[0]);
+  console.log('Auction completed - calculating winner');
+  const sortedTeams = [...teams].sort((a, b) => {
+    const synergyA = Number.isFinite(a.synergy) ? a.synergy : 0;
+    const synergyB = Number.isFinite(b.synergy) ? b.synergy : 0;
+    
+    if (synergyB !== synergyA) return synergyB - synergyA;
+    return b.remaining - a.remaining;
+  });
+  
+  console.log('Final standings:', sortedTeams.map(t => 
+    `${t.name}: ${Number.isFinite(t.synergy) ? t.synergy.toFixed(1) : 0} synergy`
+  ));
+  
+  io.emit('auctionComplete', { 
+    winner: sortedTeams[0], 
+    standings: sortedTeams 
+  });
 }
 
-server.listen(5000, () => console.log('Server running on port 5000 at', new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })));
+const PORT = process.env.PORT || 5000;
+
+server.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+  console.log('Auctioneer-Only Bidding Mode:');
+  console.log('- Auctioneer: Controls all bidding via team selection');
+  console.log('- Teams: View-only displays with roster and synergy');
+  console.log('- Bidding: Only auctioneer can place bids for teams');
+  console.log('Environment:', process.env.NODE_ENV || 'development');
+  loadPlayers();
+});
