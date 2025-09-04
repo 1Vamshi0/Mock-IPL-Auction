@@ -63,8 +63,8 @@ function computeNextIncrement(currentBidOrBase) {
 }
 
 // Format helpers
-const fmtL = (n) => `₹${(n / 100000).toFixed(2)}L`;
-const fmtCr = (n) => `₹${(n / 10000000).toFixed(1)}Cr`;
+const fmtL = (n) => `₹${(n / 100000)}L`;
+const fmtCr = (n) => `₹${(n / 10000000)}Cr`;
 
 // Custom hook for notifications
 function useNotifications() {
@@ -337,7 +337,7 @@ function AppContent() {
           }, null);
           
           if (topTeam) {
-            const synergy = Number.isFinite(topTeam.synergy) ? topTeam.synergy.toFixed(1) : '0.0';
+            const synergy = Number.isFinite(topTeam.synergy) ? Math.round(topTeam.synergy) : '0';
             addNotification(`Set complete! Leader: ${topTeam.name || 'Unknown'} (${synergy} synergy)`, 'success');
           }
         }
@@ -359,7 +359,7 @@ function AppContent() {
       try {
         const winner = data?.winner;
         if (winner) {
-          const synergy = Number.isFinite(winner.synergy) ? winner.synergy.toFixed(1) : '0.0';
+          const synergy = Number.isFinite(winner.synergy) ? Math.round(winner.synergy) : '0';
           addNotification(`Auction Complete! Winner: ${winner.name || 'Unknown'} (${synergy} synergy)`, 'success');
         }
       } catch (error) {
@@ -504,77 +504,68 @@ function AppContent() {
     </div>
   );
 
-  // Auctioneer View Layout
-  if (isAuctioneerView) {
-    const canSell = Boolean(state.currentBidTeam && state.currentBid > 0);
-    const progress = state.totalPlayers > 0 
-      ? ((state.currentPlayerIndex / state.totalPlayers) * 100).toFixed(1)
-      : '0.0';
-    const nextUpAmount = state.currentPlayer
-      ? (state.currentBid === 0
-          ? state.currentPlayer.basePrice
-          : state.currentBid + (state.nextIncrement || computeNextIncrement(state.currentBid)))
-      : 0;
+// Modern Auctioneer View Layout - Compact Single Page Version
+if (isAuctioneerView) {
+  const canSell = Boolean(state.currentBidTeam && state.currentBid > 0);
+  const progress = state.totalPlayers > 0
+    ? Math.round((state.currentPlayerIndex / state.totalPlayers) * 100)
+    : '0';
+  const nextUpAmount = state.currentPlayer
+    ? (state.currentBid === 0
+        ? state.currentPlayer.basePrice
+        : state.currentBid + (state.nextIncrement || computeNextIncrement(state.currentBid)))
+    : 0;
 
-    return (
-      <div className="min-h-screen flex flex-col bg-gray-900 text-white">
-        <NotificationContainer />
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <NotificationContainer />
 
-        {/* HEADER */}
-        <header className="auctioneer-header p-4">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-extrabold tracking-wide text-blue-400">
-                CPL Auctioneer
-              </h1>
-              <a 
-                href="/" 
-                className="text-sm text-blue-300 hover:text-blue-200 underline no-underline"
-              >
-                ← Home
-              </a>
-            </div>
-            <div className="text-sm text-gray-300">
-              Progress: {progress}% ({state.currentPlayerIndex}/{state.totalPlayers})
-              {state.isReAuction && <span className="ml-2 text-yellow-300">(Re-Auction)</span>}
-            </div>
+      {/* COMPACT HEADER */}
+      <header className="auctioneer-header-modern text-white">
+        <div className="flex justify-between items-center">
+          <div className="flex items-center gap-4">
+            <h1 className="text-2xl font-extrabold tracking-wider">
+              CPL AUCTION
+            </h1>
+            <a
+              href="/"
+              className="text-white hover:.text-red-700 underline transition-colors text-sm"
+            >
+              ← Home
+            </a>
           </div>
-          <div className="mt-2 progress-bar">
-            <div
-              className="progress-fill"
-              style={{ width: `${Math.min(100, Math.max(0, Number(progress)))}%` }}
-            />
-          </div>
-        </header>
-
-        {/* CONNECTION STATUS */}
-        <div className="px-4 py-2 bg-gray-800">
-          <div className="flex justify-between items-center text-sm">
-            <div className="flex items-center gap-4">
-              <span className={isConnected ? 'text-green-400' : 'text-red-400'}>
-                {isConnected ? '🟢 Connected' : '🔴 Disconnected'}
-              </span>
-              <span className="text-gray-300">
-                Teams Online: {state.connectedTeams.length}/6
-              </span>
+          <div className="text-right">
+            <div className="text-lg font-semibold">
+              Player {state.currentPlayerIndex} of {state.totalPlayers}
             </div>
-            {isLoading && (
-              <span className="text-yellow-400 pulse">Processing...</span>
-            )}
+            <div className="text-blue-200 text-sm">
+              {progress}% Complete
+              {state.isReAuction && <span className="ml-2">• Re-Auction</span>}
+            </div>
           </div>
         </div>
+        <div className="progress-container-modern">
+          <div
+            className="progress-fill-modern"
+            style={{ width: `${Math.min(100, Math.max(0, Number(progress)))}%` }}
+          />
+        </div>
+      </header>
 
-        {/* MAIN STAGE */}
-        <main className="flex-1 flex flex-col items-center justify-center p-6">
-          {state.currentPlayer ? (
-            <div className="auctioneer-main p-6 max-w-4xl w-full">
-              <div className="flex flex-col md:flex-row items-center gap-6">
+      
+      {/* MAIN CONTENT - COMPACT LAYOUT */}
+      <main className="pb-24">
+        {state.currentPlayer ? (
+          <div className="main-compact-grid">
+            {/* LEFT SIDE - PLAYER SPOTLIGHT */}
+            <div className="player-spotlight">
+              <div className="flex items-center gap-4">
                 {/* Player Image */}
                 <div className="flex-shrink-0">
                   <img
-                    src={`/photos/${state.currentPlayer.sNo}.jpg`}
+                    src={`/photos/${state.currentPlayer.sNo}.png`}
                     alt={state.currentPlayer.name}
-                    className="w-48 h-48 object-cover rounded-xl player-card-img"
+                    className="player-image-spotlight"
                     onError={(e) => {
                       e.target.src = '/default.jpg';
                       e.target.onerror = null;
@@ -584,163 +575,171 @@ function AppContent() {
 
                 {/* Player Details */}
                 <div className="flex-1 min-w-0">
-                  <h2 className="text-4xl font-bold mb-3 text-yellow-300 truncate">
+                  <h2 className="player-name-spotlight truncate">
                     {state.currentPlayer.name}
                   </h2>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-base mb-4">
-                    <div>
-                      <span className="text-gray-400 block">Role</span>
-                      <div className="font-semibold">{state.currentPlayer.role}</div>
+                  
+                  <div className="player-details-grid">
+                    <div className="player-detail-card">
+                      <div className="text-slate-600 text-xs mb-1">Role</div>
+                      <div className="font-bold text-lg text-slate-800">
+                        {state.currentPlayer.role}
+                      </div>
                     </div>
-                    <div>
-                      <span className="text-gray-400 block">Archetype</span>
-                      <div className="font-semibold">{state.currentPlayer.archetype}</div>
+                    <div className="player-detail-card">
+                      <div className="text-slate-600 text-xs mb-1">Archetype</div>
+                      <div className="font-bold text-lg text-slate-800 truncate">
+                        {state.currentPlayer.archetype}
+                      </div>
                     </div>
-                    <div>
-                      <span className="text-gray-400 block">Base Score</span>
-                      <div className="font-semibold">{state.currentPlayer.baseScore}</div>
+                    <div className="player-detail-card">
+                      <div className="text-slate-600 text-xs mb-1">Score</div>
+                      <div className="font-bold text-lg text-purple-600">
+                        {state.currentPlayer.baseScore}
+                      </div>
                     </div>
-                    <div>
-                      <span className="text-gray-400 block">Base Price</span>
-                      <div className="font-semibold text-blue-300">
+                    <div className="player-detail-card">
+                      <div className="text-slate-600 text-xs mb-1">Base Price</div>
+                      <div className="font-bold text-lg text-blue-600">
                         {fmtL(state.currentPlayer.basePrice)}
                       </div>
                     </div>
                   </div>
 
                   {/* Current Bid Display */}
-                  <div className="bg-gray-800 p-4 rounded-xl text-center border border-gray-700">
+                  <div className={`bid-status-spotlight ${state.currentBid > 0 ? 'active-bidding' : ''}`}>
                     {state.currentBid === 0 ? (
-                      <div className="text-xl">
-                        Starting Price:{' '}
-                        <span className="font-bold text-blue-400">
+                      <div>
+                        <div className="starting-price">
                           {fmtL(state.currentPlayer.basePrice)}
-                        </span>
+                        </div>
+                        <div className="text-slate-500 text-xs mt-2">
+                          Waiting for first bid...
+                        </div>
                       </div>
                     ) : (
-                      <div className="text-xl">
-                        Current Bid:{' '}
-                        <span className="font-bold text-green-400">
+                      <div>
+                        <div className="text-slate-600 text-sm mb-2">Current Highest Bid</div>
+                        <div className="current-bid-amount">
                           {fmtL(state.currentBid)}
-                        </span>
-                        <span className="ml-2 text-yellow-300">
-                          (Team {state.currentBidTeam})
-                        </span>
-                      </div>
-                    )}
-                    {nextUpAmount > 0 && (
-                      <div className="text-sm text-gray-400 mt-1">
-                        Next bid will be:{' '}
-                        <span className="font-semibold">{fmtL(nextUpAmount)}</span>
+                        </div>
+                        <div className="text-lg font-semibold text-amber-600 mb-2">
+                          Team {state.currentBidTeam}
+                        </div>
+                        {nextUpAmount > 0 && (
+                          <div className="text-slate-500 text-xs">
+                            Next bid: {fmtL(nextUpAmount)}
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
                 </div>
               </div>
             </div>
-          ) : (
-            <div className="text-center">
-              <div className="text-6xl mb-4">🏏</div>
-              <div className="text-gray-400 text-lg">
-                {state.isReAuction ? 'Re-auction completed' : 'No player currently available'}
-              </div>
-              <div className="text-gray-500 text-sm mt-2">
-                {state.currentPlayerIndex >= state.totalPlayers 
-                  ? 'All players have been processed' 
-                  : 'Waiting for next player...'
-                }
-              </div>
-            </div>
-          )}
-        </main>
 
-        {/* TEAM GRID */}
-        {state.currentPlayer && (
-          <section className="bg-gray-800 p-4 border-t border-blue-600">
-            <h3 className="text-lg font-bold mb-3 text-center text-blue-300">
-              Select Team to Place Bid
-            </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
-              {state.teams.map((team) => {
-                const nextBidAmount = state.currentBid === 0
-                  ? state.currentPlayer?.basePrice || 0
-                  : state.currentBid + (state.nextIncrement || computeNextIncrement(state.currentBid));
+            {/* RIGHT SIDE - TEAM BIDDING GRID */}
+            <div className="team-grid-modern">
+                           
+              <div className="team-cards-grid">
+                {state.teams.map((team) => {
+                  const nextBidAmount = state.currentBid === 0
+                    ? state.currentPlayer?.basePrice || 0
+                    : state.currentBid + (state.nextIncrement || computeNextIncrement(state.currentBid));
 
-                const canTeamBid = team.remaining >= nextBidAmount && 
-                                  team.players.length < 8 &&
-                                  !isLoading &&
-                                  isConnected;
+                  const canTeamBid = team.remaining >= nextBidAmount &&
+                                     team.players.length < 8 &&
+                                     !isLoading &&
+                                     isConnected;
 
-                return (
-                  <button
-                    key={team.id}
-                    onClick={() => placeBidForTeam(team.id)}
-                    disabled={!canTeamBid}
-                    className={`bid-button p-4 rounded-xl text-left w-full focus:outline-none 
-                      ${state.currentBidTeam === team.id
-                        ? 'current-bid'
-                        : canTeamBid
-                        ? 'hover:bg-blue-800'
-                        : 'disabled:bg-gray-700 disabled:opacity-50'
-                      }`}
-                  >
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="font-bold truncate">{team.name}</span>
-                      <div className="flex items-center gap-1">
-                        {state.connectedTeams.includes(team.id) && (
-                          <span className="text-green-400 text-xs">●</span>
-                        )}
-                        {state.currentBidTeam === team.id && (
-                          <span className="text-yellow-400 font-semibold text-xs">
-                            HIGHEST
-                          </span>
-                        )}
+                  return (
+                   <button
+                  key={team.id}
+                  onClick={() => placeBidForTeam(team.id)}
+                  disabled={!canTeamBid}
+                  className={`team-bid-card ${state.currentBidTeam === team.id ? 'current-highest' : ''}`}
+                >
+                  {/* Line 1: Team Name + Status Badge */}
+                  <div className="flex items-center justify-between w-full mb-3">
+                    <div className="team-name-large">{team.name}</div>
+                    {state.currentBidTeam === team.id && (
+                      <span className="text-xs bg-amber-500 text-black px-2 py-1 rounded font-bold">
+                        Highest Bidder
+                      </span>
+                    )}
+                  </div>
+                  
+                  {/* Line 2: Budget | Next Bid */}
+                  <div className="flex items-center justify-between w-full">
+                    <div className="text-center">
+                      <div className="text-xs text-slate-600 mb-1">Budget</div>
+                      <div className="font-bold text-green-600 text-lg">{fmtCr(team.remaining)}</div>
+                    </div>
+                    
+                    <div className="text-center">
+                      <div className="text-xs text-slate-600 mb-1">Next Bid</div>
+                      <div className={`font-bold text-lg ${canTeamBid ? 'text-blue-600' : 'text-red-500'}`}>
+                        {fmtL(nextBidAmount)}
                       </div>
                     </div>
-                    <div className="text-sm text-gray-400 space-y-1">
-                      <div>Budget: <span className="font-semibold text-white">{fmtCr(team.remaining)}</span></div>
-                      <div>Players: <span className="font-semibold text-white">{team.players.length}/8</span></div>
-                      <div>
-                        Next Bid:{' '}
-                        <span className={`font-semibold ${canTeamBid ? 'text-blue-300' : 'text-red-400'}`}>
-                          {fmtL(nextBidAmount)}
-                        </span>
-                      </div>
-                    </div>
-                  </button>
-                );
-              })}
+                  </div>
+                </button>
+                  );
+                })}
+              </div>
             </div>
-          </section>
+          </div>
+        ) : (
+          /* EMPTY STATE */
+          <div className="empty-auction-state">
+            <div className="empty-state-icon">🏏</div>
+            <h2 className="empty-state-title">
+              {state.isReAuction ? 'Re-Auction Complete' : 'No Player Available'}
+            </h2>
+            <p className="empty-state-description">
+              {state.currentPlayerIndex >= state.totalPlayers
+                ? 'All players have been processed. The auction is complete!'
+                : 'Waiting for the next player to be loaded into the auction system.'
+              }
+            </p>
+          </div>
         )}
+      </main>
 
-        {/* FOOTER CONTROLS */}
-        <footer className="p-4 bg-gray-800 border-t border-blue-600 flex justify-center gap-4">
+      {/* COMPACT CONTROL PANEL */}
+      <div className="control-panel-modern">
+        <div className="control-buttons-grid">
           <button
             onClick={soldPlayer}
             disabled={!canSell || isLoading || !isConnected}
-            className="control-button sell px-6 py-3 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-green-400"
+            className="control-button-modern btn-sell"
           >
-            {isLoading ? 'PROCESSING...' : 'SELL 💰'}
+            <span>💰</span>
+            {isLoading ? 'PROCESSING...' : 'SELL'}
           </button>
+          
           <button
             onClick={skipPlayer}
             disabled={isLoading || !isConnected || !state.currentPlayer}
-            className="control-button skip px-6 py-3 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400"
+            className="control-button-modern btn-skip"
           >
-            {isLoading ? 'PROCESSING...' : 'SKIP ➡️'}
+            <span>⏭️</span>
+            {isLoading ? 'PROCESSING...' : 'SKIP'}
           </button>
+          
           <button
             onClick={resetBid}
             disabled={isLoading || !isConnected || !state.currentPlayer}
-            className="control-button reset px-6 py-3 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-red-400"
+            className="control-button-modern btn-reset"
           >
-            {isLoading ? 'PROCESSING...' : 'RESET 🔄'}
+            <span>🔄</span>
+            {isLoading ? 'PROCESSING...' : 'RESET'}
           </button>
-        </footer>
+        </div>
       </div>
-    );
-  }
+    </div>
+  );
+}
 
   // Team View Layout
   if (isTeamView) {
@@ -759,19 +758,17 @@ function AppContent() {
         <NotificationContainer />
 
         <div className="flex flex-wrap gap-2 mb-3">
-          <a href="/" className="text-sm text-blue-600 underline hover:text-blue-800">
+          <a href="/" className="text-sm text-blue-600 underline hover:.text-green-600">
             ← Back to Role Select
           </a>
         </div>
 
-        <header className={`text-white p-6 rounded-lg mb-6 shadow-lg transition-all ${
+        <header className={`text-white p-6 rounded-lg mb-6 shadow-lg transition-all bg-purple-600 ${
           myCurrentBid 
-            ? 'gradient-green' 
-            : 'gradient-blue'
         }`}>
           <div className="flex justify-between items-center">
             <div>
-              <h1 className="text-3xl font-bold">{myTeam.name}</h1>
+              <h1 className="text-3xl font-bold ">{myTeam.name}</h1>
               {myCurrentBid && (
                 <div className="text-green-100 font-semibold">🌟 HIGHEST BIDDER!</div>
               )}
@@ -803,7 +800,7 @@ function AppContent() {
           </div>
           <div className="bg-white p-4 rounded-lg shadow-sm text-center border">
             <div className="text-2xl font-bold text-blue-600">
-              {Number.isFinite(myTeam.synergy) ? myTeam.synergy.toFixed(1) : '0.0'}
+              {Number.isFinite(myTeam.synergy) ? Math.round(myTeam.synergy) : '0'}
             </div>
             <div className="text-gray-600 text-sm">Team Synergy</div>
           </div>
@@ -822,7 +819,7 @@ function AppContent() {
             <div className="p-6">
               <div className="flex flex-col md:flex-row items-start gap-4 mb-4">
                 <img
-                  src={`/photos/${state.currentPlayer.sNo}.jpg`}
+                  src={`/photos/${state.currentPlayer.sNo}.png`}
                   alt={state.currentPlayer.name}
                   className="w-24 h-24 object-cover rounded-lg shadow-sm flex-shrink-0"
                   onError={(e) => {
@@ -896,70 +893,126 @@ function AppContent() {
             <h2 className="text-xl font-bold text-gray-800">My Team Roster ({myTeam.players.length}/8)</h2>
             <div className="text-sm text-gray-600 mt-1">
               Total Synergy: <span className="font-semibold text-blue-600">
-                {Number.isFinite(myTeam.synergy) ? myTeam.synergy.toFixed(1) : '0.0'}
+                {Number.isFinite(myTeam.synergy) ? Math.round(myTeam.synergy) : '0'}
               </span>
             </div>
           </div>
 
-          <div className="overflow-x-auto">
-            {myTeam.players.length === 0 ? (
-              <div className="text-center py-12">
-                <div className="text-6xl mb-4">👥</div>
-                <h3 className="text-xl font-bold text-gray-700 mb-2">No Players Yet</h3>
-                <p className="text-gray-500">Your purchased players will appear here</p>
-              </div>
-            ) : (
-              <table>
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600">#</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600">Player Name</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600">Role</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600">Archetype</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600">Base Score</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600">Base Price</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600">Bought Price</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600">Value</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {myTeam.players.map((player, index) => {
-                    const valueDiff = (player.boughtPrice || 0) - (player.basePrice || 0);
-                    const isGoodDeal = valueDiff <= 0;
-                    
-                    return (
-                      <tr key={player.sNo || index} className="hover:bg-gray-50">
-                        <td className="px-4 py-3 text-sm text-gray-600">{index + 1}</td>
-                        <td className="px-4 py-3">
-                          <div className="font-semibold text-gray-800">{player.name || 'Unknown'}</div>
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-600">{player.role || 'N/A'}</td>
-                        <td className="px-4 py-3">
-                          <span className="badge blue">
-                            {player.archetype || 'N/A'}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-sm font-semibold text-purple-600">
-                          {player.baseScore || 0}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-600">
-                          {fmtL(player.basePrice || 0)}
-                        </td>
-                        <td className="px-4 py-3 text-sm font-semibold text-green-600">
-                          {fmtL(player.boughtPrice || 0)}
-                        </td>
-                        <td className="px-4 py-3 text-sm">
-                          <span className={`font-semibold ${isGoodDeal ? 'text-green-600' : 'text-red-600'}`}>
-                            {isGoodDeal ? 'Good Deal' : 'Overpaid'}
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            )}
-          </div>
+
+<div className="overflow-x-auto">
+  {myTeam.players.length === 0 ? (
+    <div className="text-center py-12">
+      <div className="text-6xl mb-4">👥</div>
+      <h3 className="text-xl font-bold text-gray-700 mb-2">No Players Yet</h3>
+      <p className="text-gray-500">Your purchased players will appear here</p>
+    </div>
+  ) : (
+    <table>
+      <thead className="bg-gray-50">
+        <tr>
+          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600">#</th>
+          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600">Player Name</th>
+          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600">Role</th>
+          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600">Archetype</th>
+          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600">Base Score</th>
+          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600">Base Price</th>
+          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600">Bought Price</th>
+          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600">Individual Synergy</th>
+        </tr>
+      </thead>
+      <tbody className="divide-y">
+        {myTeam.players.map((player, index) => {
+          // Calculate individual synergy contribution
+          const calculateIndividualSynergy = (targetPlayer, roster) => {
+            if (!targetPlayer || !roster) return targetPlayer?.baseScore || 0;
+            
+            let baseScore = targetPlayer.baseScore || 0;
+            let synergyBonus = 0;
+            
+            // Calculate synergy with other players
+            roster.forEach((otherPlayer, otherIndex) => {
+              if (otherIndex === index || !otherPlayer?.archetype || !targetPlayer?.archetype) return;
+              
+              let arch1 = targetPlayer.archetype.trim();
+              let arch2 = otherPlayer.archetype.trim();
+              
+              if (!arch1 || !arch2) return;
+              
+              // Consistent ordering for lookup
+              if (arch1 > arch2) [arch1, arch2] = [arch2, arch1];
+              const key = `${arch1}-${arch2}`;
+              
+              // You'll need to import or define synergy rules in frontend
+              // For now, using simplified rules - ideally sync with backend
+              const synergyRules = {
+                positive: {
+                  'AO-AN': 20, 'BA-FI': 15, 'AN-WK': 15, 'BA-BO': 20,
+                  'PA-SP': 25, 'PA-PA': 10, 'CS-PA': 20, 'CS-SP': 15,
+                  'BA-CS': 10, 'BO-CS': 10,
+                },
+                negative: {
+                  'AO-AO': -15, 'FI-FI': -10, 'SP-SP': -5,
+                  'BA-BA': -5, 'WK-WK': -10, 'CS-CS': -10, 'BO-BO': -5,
+                }
+              };
+              
+              synergyBonus += synergyRules.positive[key] || 0;
+              synergyBonus += synergyRules.negative[key] || 0;
+            });
+            
+            return baseScore + synergyBonus;
+          };
+          
+          const individualSynergy = player.individualSynergy || 
+            calculateIndividualSynergy(player, myTeam.players);
+          
+          return (
+            <tr key={player.sNo || index} className="hover:bg-gray-50">
+              <td className="px-4 py-3 text-sm text-gray-600">{index + 1}</td>
+              <td className="px-4 py-3">
+                <div className="font-semibold text-gray-800">{player.name || 'Unknown'}</div>
+              </td>
+              <td className="px-4 py-3 text-sm text-gray-600">{player.role || 'N/A'}</td>
+              <td className="px-4 py-3">
+                <span className="badge blue">
+                  {player.archetype || 'N/A'}
+                </span>
+              </td>
+              <td className="px-4 py-3 text-sm font-semibold text-purple-600">
+                {player.baseScore || 0}
+              </td>
+              <td className="px-4 py-3 text-sm text-gray-600">
+                {fmtL(player.basePrice || 0)}
+              </td>
+              <td className="px-4 py-3 text-sm font-semibold text-green-600">
+                {fmtL(player.boughtPrice || 0)}
+              </td>
+              <td className="px-4 py-3 text-sm">
+                <span className={`font-semibold ${
+                  individualSynergy > (player.baseScore || 0) 
+                    ? 'text-green-600' 
+                    : individualSynergy < (player.baseScore || 0)
+                    ? 'text-red-600'
+                    : 'text-gray-600'
+                }`}>
+                  {Math.round(individualSynergy)}
+                </span>
+                <div className="text-xs text-gray-500">
+                  {individualSynergy > (player.baseScore || 0) 
+                    ? `+${Math.round(individualSynergy - (player.baseScore || 0))} synergy`
+                    : individualSynergy < (player.baseScore || 0)
+                    ? `${Math.round(individualSynergy - (player.baseScore || 0))} synergy`
+                    : 'No synergy effect'
+                  }
+                </div>
+              </td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
+  )}
+</div>
         </div>
       </div>
     );
@@ -968,15 +1021,15 @@ function AppContent() {
   // Observer View Layout
   if (isObserverView) {
     const progress = state.totalPlayers > 0 
-      ? ((state.currentPlayerIndex / state.totalPlayers) * 100).toFixed(1) 
-      : '0.0';
+      ? Math.round((state.currentPlayerIndex / state.totalPlayers) * 100)
+      : '0';
 
     return (
       <div className="min-h-screen bg-gray-100 p-4">
         <NotificationContainer />
 
         <div className="flex flex-wrap gap-2 mb-3">
-          <a href="/" className="text-sm text-blue-600 underline hover:text-blue-800">
+          <a href="/" className="text-sm text-blue-600 underline hover:text-white">
             ← Back to Role Select
           </a>
         </div>
@@ -1015,7 +1068,7 @@ function AppContent() {
                 <div>Spent: <span className="font-semibold">{fmtCr(team.spent)}</span></div>
                 <div>Players: <span className="font-semibold">{team.players.length}/8</span></div>
                 <div>Synergy: <span className="font-semibold text-blue-600">
-                  {Number.isFinite(team.synergy) ? team.synergy.toFixed(1) : '0.0'}
+                  {Number.isFinite(team.synergy) ? Math.round(team.synergy) : '0'}
                 </span></div>
               </div>
               {state.currentBidTeam === team.id && (
@@ -1032,7 +1085,7 @@ function AppContent() {
           <div className="bg-white p-6 rounded-lg shadow-sm border transition-all">
             <div className="flex items-start gap-4 mb-4">
               <img
-                src={`/photos/${state.currentPlayer.sNo}.jpg`}
+                src={`/photos/${state.currentPlayer.sNo}.png`}
                 alt={state.currentPlayer.name}
                 className="w-24 h-24 object-cover rounded-lg flex-shrink-0 shadow-md"
                 onError={(e) => {
@@ -1115,13 +1168,7 @@ function AppContent() {
 
           <button
           onClick={() => (window.location.href = '/observer')}
-          className="w-full py-3 px-4 rounded-lg 
-                    bg-gradient-to-r from-blue-500 to-indigo-500 
-                    text-white font-semibold 
-                    shadow-md hover:shadow-lg 
-                    hover:from-blue-600 hover:to-indigo-600
-                    transition-all duration-200 
-                    focus:outline-none focus:ring-2 focus:ring-blue-400"
+          class="w-full bg-red-500 text-white py-3 px-4 rounded-lg hover:bg-blue-600 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400"
           >
           Join as Observer
         </button>

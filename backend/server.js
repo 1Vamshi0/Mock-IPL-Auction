@@ -10,14 +10,14 @@ const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, { 
   cors: { 
-    origin: process.env.NODE_ENV === 'production' ? false : '*',
+    origin: '*',
     methods: ['GET', 'POST']
   } 
 });
 
 // Static assets
 app.use(express.static(path.join(__dirname, 'client', 'dist')));
-app.use('/photos', express.static(path.join(__dirname, 'public', 'photos')));
+app.use('/photos', express.static(path.join(__dirname, 'client', 'public', 'photos')));
 
 let players = [];
 let unsold = [];
@@ -190,6 +190,41 @@ function calculateSynergy(roster) {
   }
   
   return baseTotal + positive + negative;
+}
+
+// Add this function to server.js after the calculateSynergy function
+function calculatePlayerSynergy(targetPlayer, roster) {
+  if (!targetPlayer || !Array.isArray(roster) || roster.length === 0) return 0;
+  
+  // Find the target player in roster
+  const playerIndex = roster.findIndex(p => p.sNo === targetPlayer.sNo);
+  if (playerIndex === -1) return 0;
+  
+  let playerSynergy = targetPlayer.baseScore || 0; // Start with base score
+  let positiveBonus = 0;
+  let negativePenalty = 0;
+
+  // Calculate synergy with all other players in roster
+  for (let i = 0; i < roster.length; i++) {
+    if (i === playerIndex) continue; // Skip self
+    
+    const otherPlayer = roster[i];
+    if (!otherPlayer?.archetype || !targetPlayer?.archetype) continue;
+    
+    let arch1 = sanitizeString(targetPlayer.archetype);
+    let arch2 = sanitizeString(otherPlayer.archetype);
+    
+    if (!arch1 || !arch2) continue;
+    
+    // Ensure consistent ordering for lookup
+    if (arch1 > arch2) [arch1, arch2] = [arch2, arch1];
+    const key = `${arch1}-${arch2}`;
+    
+    positiveBonus += synergyRules.positive[key] || 0;
+    negativePenalty += synergyRules.negative[key] || 0;
+  }
+  
+  return playerSynergy + positiveBonus + negativePenalty;
 }
 
 // Auction helpers
@@ -402,6 +437,7 @@ io.on('connection', (socket) => {
     emitUpdate();
   });
 
+  // Modify the soldPlayer socket handler to include individual synergy
   socket.on('soldPlayer', () => {
     if (!socket.isAuctioneer) {
       socket.emit('error', 'Only auctioneer can mark players as sold');
@@ -412,12 +448,12 @@ io.on('connection', (socket) => {
       socket.emit('error', 'No valid bid to complete sale');
       return;
     }
-
+    
     if (!isValidTeamId(currentBidTeam)) {
       socket.emit('error', 'Invalid bidding team');
       return;
     }
-
+    
     const team = teams[currentBidTeam - 1];
     const player = getCurrentPlayer();
     
@@ -430,27 +466,35 @@ io.on('connection', (socket) => {
       socket.emit('error', 'Insufficient team budget');
       return;
     }
-
+    
     // Complete the sale
     team.remaining -= currentBid;
     team.spent += currentBid;
-    team.players.push({ ...player, boughtPrice: currentBid });
+    
+    // Calculate individual player synergy before adding to team
+    const playerWithSynergy = { 
+      ...player, 
+      boughtPrice: currentBid,
+      individualSynergy: calculatePlayerSynergy(player, [...team.players, player])
+    };
+    
+    team.players.push(playerWithSynergy);
     team.synergy = calculateSynergy(team.players);
-
+  
     console.log(`Player sold: ${player.name} to Team ${currentBidTeam} for ₹${(currentBid/100000).toFixed(2)}L`);
-
+  
     io.emit('playerSold', {
-      player: { ...player, boughtPrice: currentBid },
+      player: playerWithSynergy,
       teamId: currentBidTeam,
       teamName: team.name,
       amount: currentBid
     });
-
+  
     // Move to next player
     currentPlayerIndex++;
     currentBid = 0;
     currentBidTeam = null;
-
+  
     // Check for set completion or auction end
     const playersPerSet = Math.ceil(players.length / 3);
     if (currentPlayerIndex % playersPerSet === 0 && !isReAuction) {
@@ -465,6 +509,7 @@ io.on('connection', (socket) => {
     
     emitUpdate();
   });
+  
 
   socket.on('skipPlayer', () => {
     if (!socket.isAuctioneer) {
