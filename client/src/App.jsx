@@ -218,6 +218,28 @@ function AppContent() {
     setTimeout(() => setIsLoading(false), 1500);
   }, [isConnected, isLoading, isAuctioneerView]);
 
+  const resetAuction = useCallback(() => {
+    if (!socketRef.current || !isConnected || isLoading || !isAuctioneerView) {
+      return;
+    }
+
+    confirmAlert({
+      title: 'Confirm Auction Reset',
+      message: 'This will restart the entire auction from the beginning. All progress will be lost. Are you sure?',
+      buttons: [
+        {
+          label: 'Yes, Reset Everything',
+          onClick: () => {
+            setIsLoading(true);
+            socketRef.current.emit('resetAuction');
+            setTimeout(() => setIsLoading(false), 3000);
+          },
+        },
+        { label: 'Cancel', onClick: () => {} },
+      ],
+    });
+  }, [isConnected, isLoading, isAuctioneerView]);
+
   // Socket connection management
   useEffect(() => {
     console.log('Connecting to backend:', backendUrl);
@@ -388,6 +410,16 @@ function AppContent() {
       }
     });
 
+    socket.on('auctionReset', (data) => {
+      try {
+        const message = data?.message || 'Auction has been reset';
+        addNotification(message, 'info');
+        setTimeout(() => window.location.reload(), 2000);
+      } catch (error) {
+        console.error('Error handling auctionReset event:', error);
+      }
+    });
+
     socket.on('error', (errorMessage) => {
       try {
         addNotification(`Error: ${errorMessage || 'Unknown error'}`, 'error');
@@ -401,7 +433,7 @@ function AppContent() {
       try {
         addNotification(`Bid reset for ${data?.playerName || 'player'}`, 'info');
       } catch (error) {
-    console.error('Error handling bidReset event:', error);
+        console.error('Error handling bidReset event:', error);
       }
     });
 
@@ -504,242 +536,256 @@ function AppContent() {
     </div>
   );
 
-// Modern Auctioneer View Layout - Compact Single Page Version
-if (isAuctioneerView) {
-  const canSell = Boolean(state.currentBidTeam && state.currentBid > 0);
-  const progress = state.totalPlayers > 0
-    ? Math.round((state.currentPlayerIndex / state.totalPlayers) * 100)
-    : '0';
-  const nextUpAmount = state.currentPlayer
-    ? (state.currentBid === 0
-        ? state.currentPlayer.basePrice
-        : state.currentBid + (state.nextIncrement || computeNextIncrement(state.currentBid)))
-    : 0;
+  // Modern Auctioneer View Layout - Compact Single Page Version
+  if (isAuctioneerView) {
+    const canSell = Boolean(state.currentBidTeam && state.currentBid > 0);
+    const progress = state.totalPlayers > 0
+      ? Math.round((state.currentPlayerIndex / state.totalPlayers) * 100)
+      : '0';
+    const nextUpAmount = state.currentPlayer
+      ? (state.currentBid === 0
+          ? state.currentPlayer.basePrice
+          : state.currentBid + (state.nextIncrement || computeNextIncrement(state.currentBid)))
+      : 0;
 
-  return (
-    <div className="min-h-screen bg-gray-50">
-      <NotificationContainer />
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <NotificationContainer />
 
-      {/* COMPACT HEADER */}
-      <header className="auctioneer-header-modern text-white">
-        <div className="flex justify-between items-center">
-          <div className="flex items-center gap-4">
-            <h1 className="text-2xl font-extrabold tracking-wider">
-              CPL AUCTION
-            </h1>
-            <a
-              href="/"
-              className="text-white hover:.text-red-700 underline transition-colors text-sm"
-            >
-              ← Home
-            </a>
-          </div>
-          <div className="text-right">
-            <div className="text-lg font-semibold">
-              Player {state.currentPlayerIndex} of {state.totalPlayers}
+        {/* COMPACT HEADER */}
+        <header className="auctioneer-header-modern text-white">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-4">
+              <h1 className="text-2xl font-extrabold tracking-wider">
+                CPL AUCTION
+              </h1>
+              <a
+                href="/"
+                className="text-white hover:text-red-700 underline transition-colors text-sm"
+              >
+                ← Home
+              </a>
             </div>
-            <div className="text-blue-200 text-sm">
-              {progress}% Complete
-              {state.isReAuction && <span className="ml-2">• Re-Auction</span>}
+            <div className="text-right">
+              <div className="text-lg font-semibold">
+                Player {state.currentPlayerIndex} of {state.totalPlayers}
+              </div>
+              <div className="text-blue-200 text-sm">
+                {progress}% Complete
+                {state.isReAuction && <span className="ml-2">• Re-Auction</span>}
+              </div>
             </div>
           </div>
-        </div>
-        <div className="progress-container-modern">
-          <div
-            className="progress-fill-modern"
-            style={{ width: `${Math.min(100, Math.max(0, Number(progress)))}%` }}
-          />
-        </div>
-      </header>
+          <div className="progress-container-modern">
+            <div
+              className="progress-fill-modern"
+              style={{ width: `${Math.min(100, Math.max(0, Number(progress)))}%` }}
+            />
+          </div>
+        </header>
 
-      
-      {/* MAIN CONTENT - COMPACT LAYOUT */}
-      <main className="pb-24">
-        {state.currentPlayer ? (
-          <div className="main-compact-grid">
-            {/* LEFT SIDE - PLAYER SPOTLIGHT */}
-            <div className="player-spotlight">
-              <div className="flex items-center gap-4">
-                {/* Player Image */}
-                <div className="flex-shrink-0">
-                  <img
-                    src={`/photos/${state.currentPlayer.sNo}.png`}
-                    alt={state.currentPlayer.name}
-                    className="player-image-spotlight"
-                    onError={(e) => {
-                      e.target.src = '/default.jpg';
-                      e.target.onerror = null;
-                    }}
-                  />
-                </div>
-
-                {/* Player Details */}
-                <div className="flex-1 min-w-0">
-                  <h2 className="player-name-spotlight truncate">
-                    {state.currentPlayer.name}
-                  </h2>
-                  
-                  <div className="player-details-grid">
-                    <div className="player-detail-card">
-                      <div className="text-slate-600 text-xs mb-1">Role</div>
-                      <div className="font-bold text-lg text-slate-800">
-                        {state.currentPlayer.role}
-                      </div>
-                    </div>
-                    <div className="player-detail-card">
-                      <div className="text-slate-600 text-xs mb-1">Archetype</div>
-                      <div className="font-bold text-lg text-slate-800 truncate">
-                        {state.currentPlayer.archetype}
-                      </div>
-                    </div>
-                    <div className="player-detail-card">
-                      <div className="text-slate-600 text-xs mb-1">Score</div>
-                      <div className="font-bold text-lg text-purple-600">
-                        {state.currentPlayer.baseScore}
-                      </div>
-                    </div>
-                    <div className="player-detail-card">
-                      <div className="text-slate-600 text-xs mb-1">Base Price</div>
-                      <div className="font-bold text-lg text-blue-600">
-                        {fmtL(state.currentPlayer.basePrice)}
-                      </div>
-                    </div>
+        {/* MAIN CONTENT - COMPACT LAYOUT */}
+        <main className="pb-24">
+          {state.currentPlayer ? (
+            <div className="main-compact-grid">
+              {/* LEFT SIDE - PLAYER SPOTLIGHT */}
+              <div className="player-spotlight">
+                <div className="flex items-center gap-4">
+                  {/* Player Image */}
+                  <div className="flex-shrink-0">
+                    <img
+                      src={`/photos/${state.currentPlayer.sNo}.png`}
+                      alt={state.currentPlayer.name}
+                      className="player-image-spotlight"
+                      onError={(e) => {
+                        e.target.src = '/default.jpg';
+                        e.target.onerror = null;
+                      }}
+                    />
                   </div>
 
-                  {/* Current Bid Display */}
-                  <div className={`bid-status-spotlight ${state.currentBid > 0 ? 'active-bidding' : ''}`}>
-                    {state.currentBid === 0 ? (
-                      <div>
-                        <div className="starting-price">
+                  {/* Player Details */}
+                  <div className="flex-1 min-w-0">
+                    <h2 className="player-name-spotlight truncate">
+                      {state.currentPlayer.name}
+                    </h2>
+                    
+                    <div className="player-details-grid">
+                      <div className="player-detail-card">
+                        <div className="text-slate-600 text-xs mb-1">Role</div>
+                        <div className="font-bold text-lg text-slate-800">
+                          {state.currentPlayer.role}
+                        </div>
+                      </div>
+                      <div className="player-detail-card">
+                        <div className="text-slate-600 text-xs mb-1">Archetype</div>
+                        <div className="font-bold text-lg text-slate-800 truncate">
+                          {state.currentPlayer.archetype}
+                        </div>
+                      </div>
+                      <div className="player-detail-card">
+                        <div className="text-slate-600 text-xs mb-1">Score</div>
+                        <div className="font-bold text-lg text-purple-600">
+                          {state.currentPlayer.baseScore}
+                        </div>
+                      </div>
+                      <div className="player-detail-card">
+                        <div className="text-slate-600 text-xs mb-1">Base Price</div>
+                        <div className="font-bold text-lg text-blue-600">
                           {fmtL(state.currentPlayer.basePrice)}
                         </div>
-                        <div className="text-slate-500 text-xs mt-2">
-                          Waiting for first bid...
-                        </div>
                       </div>
-                    ) : (
-                      <div>
-                        <div className="text-slate-600 text-sm mb-2">Current Highest Bid</div>
-                        <div className="current-bid-amount">
-                          {fmtL(state.currentBid)}
-                        </div>
-                        <div className="text-lg font-semibold text-amber-600 mb-2">
-                          Team {state.currentBidTeam}
-                        </div>
-                        {nextUpAmount > 0 && (
-                          <div className="text-slate-500 text-xs">
-                            Next bid: {fmtL(nextUpAmount)}
+                    </div>
+
+                    {/* Current Bid Display */}
+                    <div className={`bid-status-spotlight ${state.currentBid > 0 ? 'active-bidding' : ''}`}>
+                      {state.currentBid === 0 ? (
+                        <div>
+                          <div className="starting-price">
+                            {fmtL(state.currentPlayer.basePrice)}
                           </div>
-                        )}
-                      </div>
-                    )}
+                          <div className="text-slate-500 text-xs mt-2">
+                            Waiting for first bid...
+                          </div>
+                        </div>
+                      ) : (
+                        <div>
+                          <div className="text-slate-600 text-sm mb-2">Current Highest Bid</div>
+                          <div className="current-bid-amount">
+                            {fmtL(state.currentBid)}
+                          </div>
+                          <div className="text-lg font-semibold text-amber-600 mb-2">
+                            Team {state.currentBidTeam}
+                          </div>
+                          {nextUpAmount > 0 && (
+                            <div className="text-slate-500 text-xs">
+                              Next bid: {fmtL(nextUpAmount)}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
 
-            {/* RIGHT SIDE - TEAM BIDDING GRID */}
-            <div className="team-grid-modern">
-                           
-              <div className="team-cards-grid">
-                {state.teams.map((team) => {
-                  const nextBidAmount = state.currentBid === 0
-                    ? state.currentPlayer?.basePrice || 0
-                    : state.currentBid + (state.nextIncrement || computeNextIncrement(state.currentBid));
+              {/* RIGHT SIDE - TEAM BIDDING GRID */}
+              <div className="team-grid-modern">
+                <div className="team-cards-grid">
+                  {state.teams.map((team) => {
+                    const nextBidAmount = state.currentBid === 0
+                      ? state.currentPlayer?.basePrice || 0
+                      : state.currentBid + (state.nextIncrement || computeNextIncrement(state.currentBid));
 
-                  const canTeamBid = team.remaining >= nextBidAmount &&
-                                     team.players.length < 8 &&
-                                     !isLoading &&
-                                     isConnected;
+                    const canTeamBid = team.remaining >= nextBidAmount &&
+                                       team.players.length < 8 &&
+                                       !isLoading &&
+                                       isConnected;
 
-                  return (
-                   <button
-                  key={team.id}
-                  onClick={() => placeBidForTeam(team.id)}
-                  disabled={!canTeamBid}
-                  className={`team-bid-card ${state.currentBidTeam === team.id ? 'current-highest' : ''}`}
-                >
-                  {/* Line 1: Team Name + Status Badge */}
-                  <div className="flex items-center justify-between w-full mb-3">
-                    <div className="team-name-large">{team.name}</div>
-                    {state.currentBidTeam === team.id && (
-                      <span className="text-xs bg-amber-500 text-black px-2 py-1 rounded font-bold">
-                        Highest Bidder
-                      </span>
-                    )}
-                  </div>
-                  
-                  {/* Line 2: Budget | Next Bid */}
-                  <div className="flex items-center justify-between w-full">
-                    <div className="text-center">
-                      <div className="text-xs text-slate-600 mb-1">Budget</div>
-                      <div className="font-bold text-green-600 text-lg">{fmtCr(team.remaining)}</div>
-                    </div>
-                    
-                    <div className="text-center">
-                      <div className="text-xs text-slate-600 mb-1">Next Bid</div>
-                      <div className={`font-bold text-lg ${canTeamBid ? 'text-blue-600' : 'text-red-500'}`}>
-                        {fmtL(nextBidAmount)}
-                      </div>
-                    </div>
-                  </div>
-                </button>
-                  );
-                })}
+                    return (
+                      <button
+                        key={team.id}
+                        onClick={() => placeBidForTeam(team.id)}
+                        disabled={!canTeamBid}
+                        className={`team-bid-card ${state.currentBidTeam === team.id ? 'current-highest' : ''}`}
+                      >
+                        {/* Line 1: Team Name + Status Badge */}
+                        <div className="flex items-center justify-between w-full mb-3">
+                          <div className="team-name-large">{team.name}</div>
+                          {state.currentBidTeam === team.id && (
+                            <span className="text-xs bg-amber-500 text-black px-2 py-1 rounded font-bold">
+                              Highest Bidder
+                            </span>
+                          )}
+                        </div>
+                        
+                        {/* Line 2: Budget | Next Bid */}
+                        <div className="flex items-center justify-between w-full">
+                          <div className="text-center">
+                            <div className="text-xs text-slate-600 mb-1">Budget</div>
+                            <div className="font-bold text-green-600 text-lg">{fmtCr(team.remaining)}</div>
+                          </div>
+                          
+                          <div className="text-center">
+                            <div className="text-xs text-slate-600 mb-1">Next Bid</div>
+                            <div className={`font-bold text-lg ${canTeamBid ? 'text-blue-600' : 'text-red-500'}`}>
+                              {fmtL(nextBidAmount)}
+                            </div>
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             </div>
-          </div>
-        ) : (
-          /* EMPTY STATE */
-          <div className="empty-auction-state">
-            <div className="empty-state-icon">🏏</div>
-            <h2 className="empty-state-title">
-              {state.isReAuction ? 'Re-Auction Complete' : 'No Player Available'}
-            </h2>
-            <p className="empty-state-description">
-              {state.currentPlayerIndex >= state.totalPlayers
-                ? 'All players have been processed. The auction is complete!'
-                : 'Waiting for the next player to be loaded into the auction system.'
-              }
-            </p>
-          </div>
-        )}
-      </main>
+          ) : (
+            /* EMPTY STATE */
+            <div className="empty-auction-state">
+              <div className="empty-state-icon">🏏</div>
+              <h2 className="empty-state-title">
+                {state.isReAuction ? 'Re-Auction Complete' : 'No Player Available'}
+              </h2>
+              <p className="empty-state-description">
+                {state.currentPlayerIndex >= state.totalPlayers
+                  ? 'All players have been processed. The auction is complete!'
+                  : 'Waiting for the next player to be loaded into the auction system.'
+                }
+              </p>
+            </div>
+          )}
+        </main>
 
-      {/* COMPACT CONTROL PANEL */}
-      <div className="control-panel-modern">
-        <div className="control-buttons-grid">
-          <button
-            onClick={soldPlayer}
-            disabled={!canSell || isLoading || !isConnected}
-            className="control-button-modern btn-sell"
-          >
-            <span>💰</span>
-            {isLoading ? 'PROCESSING...' : 'SELL'}
-          </button>
-          
-          <button
-            onClick={skipPlayer}
-            disabled={isLoading || !isConnected || !state.currentPlayer}
-            className="control-button-modern btn-skip"
-          >
-            <span>⏭️</span>
-            {isLoading ? 'PROCESSING...' : 'SKIP'}
-          </button>
-          
-          <button
-            onClick={resetBid}
-            disabled={isLoading || !isConnected || !state.currentPlayer}
-            className="control-button-modern btn-reset"
-          >
-            <span>🔄</span>
-            {isLoading ? 'PROCESSING...' : 'RESET'}
-          </button>
+        {/* COMPACT CONTROL PANEL */}
+        <div className="control-panel-modern">
+          <div className="control-buttons-grid">
+            <button
+              onClick={soldPlayer}
+              disabled={!canSell || isLoading || !isConnected}
+              className="control-button-modern btn-sell"
+            >
+              <span>💰</span>
+              {isLoading ? 'PROCESSING...' : 'SELL'}
+            </button>
+            
+            <button
+              onClick={skipPlayer}
+              disabled={isLoading || !isConnected || !state.currentPlayer}
+              className="control-button-modern btn-skip"
+            >
+              <span>⏭️</span>
+              {isLoading ? 'PROCESSING...' : 'SKIP'}
+            </button>
+            
+            <button
+              onClick={resetBid}
+              disabled={isLoading || !isConnected || !state.currentPlayer}
+              className="control-button-modern btn-reset"
+            >
+              <span>🔄</span>
+              {isLoading ? 'PROCESSING...' : 'RESET'}
+            </button>
+            
+            {/* Only show RESET AUCTION after 48 players have been processed */}
+            {state.currentPlayerIndex >= 48 && (
+              <button
+                onClick={resetAuction}
+                disabled={isLoading || !isConnected}
+                className="control-button-modern btn-danger"
+                style={{
+                  backgroundColor: '#dc2626',
+                  borderColor: '#dc2626'
+                }}
+              >
+                <span>🧹</span>
+                {isLoading ? 'PROCESSING...' : 'RESET AUCTION'}
+              </button>
+            )}
+          </div>
         </div>
       </div>
-    </div>
-  );
-}
+    );
+  }
 
   // Team View Layout
   if (isTeamView) {
@@ -758,7 +804,7 @@ if (isAuctioneerView) {
         <NotificationContainer />
 
         <div className="flex flex-wrap gap-2 mb-3">
-          <a href="/" className="text-sm text-blue-600 underline hover:.text-green-600">
+          <a href="/" className="text-sm text-blue-600 underline hover:text-green-600">
             ← Back to Role Select
           </a>
         </div>
@@ -898,121 +944,120 @@ if (isAuctioneerView) {
             </div>
           </div>
 
-
-<div className="overflow-x-auto">
-  {myTeam.players.length === 0 ? (
-    <div className="text-center py-12">
-      <div className="text-6xl mb-4">👥</div>
-      <h3 className="text-xl font-bold text-gray-700 mb-2">No Players Yet</h3>
-      <p className="text-gray-500">Your purchased players will appear here</p>
-    </div>
-  ) : (
-    <table>
-      <thead className="bg-gray-50">
-        <tr>
-          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600">#</th>
-          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600">Player Name</th>
-          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600">Role</th>
-          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600">Archetype</th>
-          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600">Base Score</th>
-          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600">Base Price</th>
-          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600">Bought Price</th>
-          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600">Individual Synergy</th>
-        </tr>
-      </thead>
-      <tbody className="divide-y">
-        {myTeam.players.map((player, index) => {
-          // Calculate individual synergy contribution
-          const calculateIndividualSynergy = (targetPlayer, roster) => {
-            if (!targetPlayer || !roster) return targetPlayer?.baseScore || 0;
-            
-            let baseScore = targetPlayer.baseScore || 0;
-            let synergyBonus = 0;
-            
-            // Calculate synergy with other players
-            roster.forEach((otherPlayer, otherIndex) => {
-              if (otherIndex === index || !otherPlayer?.archetype || !targetPlayer?.archetype) return;
-              
-              let arch1 = targetPlayer.archetype.trim();
-              let arch2 = otherPlayer.archetype.trim();
-              
-              if (!arch1 || !arch2) return;
-              
-              // Consistent ordering for lookup
-              if (arch1 > arch2) [arch1, arch2] = [arch2, arch1];
-              const key = `${arch1}-${arch2}`;
-              
-              // You'll need to import or define synergy rules in frontend
-              // For now, using simplified rules - ideally sync with backend
-              const synergyRules = {
-                positive: {
-                  'AO-AN': 20, 'BA-FI': 15, 'AN-WK': 15, 'BA-BO': 20,
-                  'PA-SP': 25, 'PA-PA': 10, 'CS-PA': 20, 'CS-SP': 15,
-                  'BA-CS': 10, 'BO-CS': 10,
-                },
-                negative: {
-                  'AO-AO': -15, 'FI-FI': -10, 'SP-SP': -5,
-                  'BA-BA': -5, 'WK-WK': -10, 'CS-CS': -10, 'BO-BO': -5,
-                }
-              };
-              
-              synergyBonus += synergyRules.positive[key] || 0;
-              synergyBonus += synergyRules.negative[key] || 0;
-            });
-            
-            return baseScore + synergyBonus;
-          };
-          
-          const individualSynergy = player.individualSynergy || 
-            calculateIndividualSynergy(player, myTeam.players);
-          
-          return (
-            <tr key={player.sNo || index} className="hover:bg-gray-50">
-              <td className="px-4 py-3 text-sm text-gray-600">{index + 1}</td>
-              <td className="px-4 py-3">
-                <div className="font-semibold text-gray-800">{player.name || 'Unknown'}</div>
-              </td>
-              <td className="px-4 py-3 text-sm text-gray-600">{player.role || 'N/A'}</td>
-              <td className="px-4 py-3">
-                <span className="badge blue">
-                  {player.archetype || 'N/A'}
-                </span>
-              </td>
-              <td className="px-4 py-3 text-sm font-semibold text-purple-600">
-                {player.baseScore || 0}
-              </td>
-              <td className="px-4 py-3 text-sm text-gray-600">
-                {fmtL(player.basePrice || 0)}
-              </td>
-              <td className="px-4 py-3 text-sm font-semibold text-green-600">
-                {fmtL(player.boughtPrice || 0)}
-              </td>
-              <td className="px-4 py-3 text-sm">
-                <span className={`font-semibold ${
-                  individualSynergy > (player.baseScore || 0) 
-                    ? 'text-green-600' 
-                    : individualSynergy < (player.baseScore || 0)
-                    ? 'text-red-600'
-                    : 'text-gray-600'
-                }`}>
-                  {Math.round(individualSynergy)}
-                </span>
-                <div className="text-xs text-gray-500">
-                  {individualSynergy > (player.baseScore || 0) 
-                    ? `+${Math.round(individualSynergy - (player.baseScore || 0))} synergy`
-                    : individualSynergy < (player.baseScore || 0)
-                    ? `${Math.round(individualSynergy - (player.baseScore || 0))} synergy`
-                    : 'No synergy effect'
-                  }
-                </div>
-              </td>
-            </tr>
-          );
-        })}
-      </tbody>
-    </table>
-  )}
-</div>
+          <div className="overflow-x-auto">
+            {myTeam.players.length === 0 ? (
+              <div className="text-center py-12">
+                <div className="text-6xl mb-4">👥</div>
+                <h3 className="text-xl font-bold text-gray-700 mb-2">No Players Yet</h3>
+                <p className="text-gray-500">Your purchased players will appear here</p>
+              </div>
+            ) : (
+              <table>
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600">#</th>
+                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600">Player Name</th>
+                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600">Role</th>
+                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600">Archetype</th>
+                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600">Base Score</th>
+                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600">Base Price</th>
+                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600">Bought Price</th>
+                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600">Individual Synergy</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {myTeam.players.map((player, index) => {
+                    // Calculate individual synergy contribution
+                    const calculateIndividualSynergy = (targetPlayer, roster) => {
+                      if (!targetPlayer || !roster) return targetPlayer?.baseScore || 0;
+                      
+                      let baseScore = targetPlayer.baseScore || 0;
+                      let synergyBonus = 0;
+                      
+                      // Calculate synergy with other players
+                      roster.forEach((otherPlayer, otherIndex) => {
+                        if (otherIndex === index || !otherPlayer?.archetype || !targetPlayer?.archetype) return;
+                        
+                        let arch1 = targetPlayer.archetype.trim();
+                        let arch2 = otherPlayer.archetype.trim();
+                        
+                        if (!arch1 || !arch2) return;
+                        
+                        // Consistent ordering for lookup
+                        if (arch1 > arch2) [arch1, arch2] = [arch2, arch1];
+                        const key = `${arch1}-${arch2}`;
+                        
+                        // You'll need to import or define synergy rules in frontend
+                        // For now, using simplified rules - ideally sync with backend
+                        const synergyRules = {
+                          positive: {
+                            'AO-AN': 20, 'BA-FI': 15, 'AN-WK': 15, 'BA-BO': 20,
+                            'PA-SP': 25, 'PA-PA': 10, 'CS-PA': 20, 'CS-SP': 15,
+                            'BA-CS': 10, 'BO-CS': 10,
+                          },
+                          negative: {
+                            'AO-AO': -15, 'FI-FI': -10, 'SP-SP': -5,
+                            'BA-BA': -5, 'WK-WK': -10, 'CS-CS': -10, 'BO-BO': -5,
+                          }
+                        };
+                        
+                        synergyBonus += synergyRules.positive[key] || 0;
+                        synergyBonus += synergyRules.negative[key] || 0;
+                      });
+                      
+                      return baseScore + synergyBonus;
+                    };
+                    
+                    const individualSynergy = player.individualSynergy || 
+                      calculateIndividualSynergy(player, myTeam.players);
+                    
+                    return (
+                      <tr key={player.sNo || index} className="hover:bg-gray-50">
+                        <td className="px-4 py-3 text-sm text-gray-600">{index + 1}</td>
+                        <td className="px-4 py-3">
+                          <div className="font-semibold text-gray-800">{player.name || 'Unknown'}</div>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-600">{player.role || 'N/A'}</td>
+                        <td className="px-4 py-3">
+                          <span className="badge blue">
+                            {player.archetype || 'N/A'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-sm font-semibold text-purple-600">
+                          {player.baseScore || 0}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-600">
+                          {fmtL(player.basePrice || 0)}
+                        </td>
+                        <td className="px-4 py-3 text-sm font-semibold text-green-600">
+                          {fmtL(player.boughtPrice || 0)}
+                        </td>
+                        <td className="px-4 py-3 text-sm">
+                          <span className={`font-semibold ${
+                            individualSynergy > (player.baseScore || 0) 
+                              ? 'text-green-600' 
+                              : individualSynergy < (player.baseScore || 0)
+                              ? 'text-red-600'
+                              : 'text-gray-600'
+                          }`}>
+                            {Math.round(individualSynergy)}
+                          </span>
+                          <div className="text-xs text-gray-500">
+                            {individualSynergy > (player.baseScore || 0) 
+                              ? `+${Math.round(individualSynergy - (player.baseScore || 0))} synergy`
+                              : individualSynergy < (player.baseScore || 0)
+                              ? `${Math.round(individualSynergy - (player.baseScore || 0))} synergy`
+                              : 'No synergy effect'
+                            }
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
         </div>
       </div>
     );
@@ -1167,12 +1212,11 @@ if (isAuctioneerView) {
           </div>
 
           <button
-          onClick={() => (window.location.href = '/observer')}
-          class="w-full bg-red-500 text-white py-3 px-4 rounded-lg hover:bg-blue-600 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400"
+            onClick={() => (window.location.href = '/observer')}
+            className="w-full bg-red-500 text-white py-3 px-4 rounded-lg hover:bg-red-600 transition-colors focus:outline-none focus:ring-2 focus:ring-red-400"
           >
-          Join as Observer
-        </button>
-
+            Join as Observer
+          </button>
 
           <div className="text-xs text-gray-500 mt-6 p-2 bg-gray-50 rounded">
             <div>Backend: <code className="bg-gray-200 px-1 rounded">{backendUrl}</code></div>

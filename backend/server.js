@@ -10,7 +10,7 @@ const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, { 
   cors: { 
-    origin: '*',
+    origin: process.env.NODE_ENV === 'production' ? false : '*',
     methods: ['GET', 'POST']
   } 
 });
@@ -78,78 +78,88 @@ function sanitizeString(str) {
 
 // Load players from CSV
 function loadPlayers() {
-  const csvPath = process.env.PLAYERS_CSV || path.join(__dirname, 'players.csv');
+  return new Promise((resolve, reject) => {
+    const csvPath = process.env.PLAYERS_CSV || path.join(__dirname, 'players.csv');
 
-  if (!fs.existsSync(csvPath)) {
-    console.error(`CSV file not found at: ${csvPath}`);
-    console.error('Please ensure players.csv exists in the project directory');
-    process.exit(1);
-  }
+    if (!fs.existsSync(csvPath)) {
+      console.error(`CSV file not found at: ${csvPath}`);
+      console.error('Please ensure players.csv exists in the project directory');
+      reject(new Error('CSV file not found'));
+      return;
+    }
 
-  const requiredColumns = ['S.No', 'Name', 'Role', 'Archetype', 'Base_Score', 'Base_Price'];
-  let headerValidated = false;
+    // Reset players array
+    players = [];
+    
+    const requiredColumns = ['S.No', 'Name', 'Role', 'Archetype', 'Base_Score', 'Base_Price'];
+    let headerValidated = false;
 
-  fs.createReadStream(csvPath)
-    .pipe(csv())
-    .on('headers', (headers) => {
-      const missingColumns = requiredColumns.filter(col => !headers.includes(col));
-      if (missingColumns.length > 0) {
-        console.error(`Missing required columns in CSV: ${missingColumns.join(', ')}`);
-        process.exit(1);
-      }
-      headerValidated = true;
-    })
-    .on('data', (row) => {
-      if (!headerValidated) return;
-      
-      try {
-        const player = {
-          sNo: sanitizeString(row['S.No']),
-          name: sanitizeString(row.Name),
-          role: sanitizeString(row.Role),
-          archetype: sanitizeString(row.Archetype),
-          baseScore: parseInt(row.Base_Score) || 0,
-          // CSV base price is in Lakhs → convert to rupees
-          basePrice: (parseInt(row.Base_Price) || 0) * 100000,
-        };
-        
-        // Validate required fields
-        if (player.name && player.archetype && player.baseScore > 0 && player.basePrice > 0) {
-          players.push(player);
-        } else {
-          console.warn(`Skipping invalid player row: ${JSON.stringify(row)}`);
+    fs.createReadStream(csvPath)
+      .pipe(csv())
+      .on('headers', (headers) => {
+        const missingColumns = requiredColumns.filter(col => !headers.includes(col));
+        if (missingColumns.length > 0) {
+          console.error(`Missing required columns in CSV: ${missingColumns.join(', ')}`);
+          reject(new Error(`Missing required columns: ${missingColumns.join(', ')}`));
+          return;
         }
-      } catch (error) {
-        console.error(`Error processing player row: ${error.message}`);
-      }
-    })
-    .on('error', (err) => {
-      console.error('CSV Load Error:', err.message);
-      process.exit(1);
-    })
-    .on('end', () => {
-      if (players.length === 0) {
-        console.error('No valid players loaded from CSV.');
-        process.exit(1);
-      }
-      
-      if (players.length < 72) {
-        console.warn(`Warning: Only ${players.length} players loaded. Expected at least 72 for full auction.`);
-      }
-      
-      // Shuffle and divide into sets
-      players = players.sort(() => Math.random() - 0.5);
-      const playersPerSet = Math.ceil(players.length / 3);
-      sets = [
-        players.slice(0, playersPerSet), 
-        players.slice(playersPerSet, playersPerSet * 2), 
-        players.slice(playersPerSet * 2)
-      ];
-      
-      console.log(`Successfully loaded ${players.length} players`);
-      console.log(`Sets: ${sets[0].length}, ${sets[1].length}, ${sets[2].length}`);
-      emitUpdate();
-    });
+        headerValidated = true;
+      })
+      .on('data', (row) => {
+        if (!headerValidated) return;
+        
+        try {
+          const player = {
+            sNo: sanitizeString(row['S.No']),
+            name: sanitizeString(row.Name),
+            role: sanitizeString(row.Role),
+            archetype: sanitizeString(row.Archetype),
+            baseScore: parseInt(row.Base_Score) || 0,
+            // CSV base price is in Lakhs → convert to rupees
+            basePrice: (parseInt(row.Base_Price) || 0) * 100000,
+          };
+          
+          // Validate required fields
+          if (player.name && player.archetype && player.baseScore > 0 && player.basePrice > 0) {
+            players.push(player);
+          } else {
+            console.warn(`Skipping invalid player row: ${JSON.stringify(row)}`);
+          }
+        } catch (error) {
+          console.error(`Error processing player row: ${error.message}`);
+        }
+      })
+      .on('error', (err) => {
+        console.error('CSV Load Error:', err.message);
+        reject(err);
+      })
+      .on('end', () => {
+        if (players.length === 0) {
+          console.error('No valid players loaded from CSV.');
+          reject(new Error('No valid players loaded'));
+          return;
+        }
+        
+        if (players.length < 72) {
+          console.warn(`Warning: Only ${players.length} players loaded. Expected at least 72 for full auction.`);
+        }
+        
+        // Shuffle and divide into sets
+        players = players.sort(() => Math.random() - 0.5);
+        const playersPerSet = Math.ceil(players.length / 3);
+        sets = [
+          players.slice(0, playersPerSet), 
+          players.slice(playersPerSet, playersPerSet * 2), 
+          players.slice(playersPerSet * 2)
+        ];
+        
+        console.log(`Successfully loaded ${players.length} players`);
+        console.log(`Sets: ${sets[0].length}, ${sets[1].length}, ${sets[2].length}`);
+        
+        emitUpdate();
+        resolve();
+      });
+  });
 }
 
 // Synergy calculation with better error handling
@@ -192,7 +202,7 @@ function calculateSynergy(roster) {
   return baseTotal + positive + negative;
 }
 
-// Add this function to server.js after the calculateSynergy function
+// Calculate individual player synergy
 function calculatePlayerSynergy(targetPlayer, roster) {
   if (!targetPlayer || !Array.isArray(roster) || roster.length === 0) return 0;
   
@@ -333,6 +343,54 @@ function validateBid(teamId, newBid) {
   return { valid: true };
 }
 
+// Improved reset function
+async function resetAuction() {
+  console.log('Starting auction reset...');
+  
+  try {
+    // Clear all auction state
+    unsold = [];
+    reAuctionUnsold = [];
+    currentPlayerIndex = 0;
+    currentBid = 0;
+    currentBidTeam = null;
+    isReAuction = false;
+    auctioneerConnected = false;
+    connectedTeams = new Set();
+
+    // Reset teams
+    teams = Array.from({ length: 6 }, (_, i) => ({
+      id: i + 1,
+      name: `Team ${i + 1}`,
+      budget: 450000000,
+      remaining: 450000000,
+      spent: 0,
+      players: [],
+      synergy: 0,
+      isConnected: false,
+      socketId: null
+    }));
+
+    console.log('Auction state reset. Reloading players...');
+    
+    // Reload players - this is now async
+    await loadPlayers();
+    
+    console.log('Players reloaded. Notifying all clients...');
+    
+    // Emit reset notification to all clients
+    io.emit('auctionReset', { 
+      message: 'Auction has been reset and reloaded by Auctioneer' 
+    });
+    
+    console.log('Auction reset completed successfully');
+    
+  } catch (error) {
+    console.error('Error during auction reset:', error);
+    throw error;
+  }
+}
+
 // HTTP routes
 app.get('/health', (req, res) => {
   res.json({
@@ -350,6 +408,13 @@ io.on('connection', (socket) => {
   console.log('Client connected:', socket.id);
 
   socket.on('joinAsAuctioneer', () => {
+    if (auctioneerConnected) {
+      // Reject second auctioneer
+      socket.emit('forceDisconnect', 'Another auctioneer is already connected');
+      socket.disconnect();
+      return;
+    }
+
     console.log('Auctioneer connected:', socket.id);
     socket.join('auctioneer');
     auctioneerConnected = true;
@@ -359,6 +424,22 @@ io.on('connection', (socket) => {
       auctioneerConnected, 
       connectedTeams: Array.from(connectedTeams) 
     });
+  });
+
+  socket.on('resetAuction', async () => {
+    if (!socket.isAuctioneer) {
+      socket.emit('error', 'Only auctioneer can reset the auction');
+      return;
+    }
+    
+    console.log('Auctioneer requested auction reset');
+    
+    try {
+      await resetAuction();
+    } catch (error) {
+      console.error('Error during auction reset:', error);
+      socket.emit('error', 'Failed to reset auction. Please try again.');
+    }
   });
 
   socket.on('joinAsTeam', (teamId) => {
@@ -437,7 +518,7 @@ io.on('connection', (socket) => {
     emitUpdate();
   });
 
-  // Modify the soldPlayer socket handler to include individual synergy
+  // Sell player with individual synergy calculation
   socket.on('soldPlayer', () => {
     if (!socket.isAuctioneer) {
       socket.emit('error', 'Only auctioneer can mark players as sold');
@@ -509,7 +590,6 @@ io.on('connection', (socket) => {
     
     emitUpdate();
   });
-  
 
   socket.on('skipPlayer', () => {
     if (!socket.isAuctioneer) {
@@ -635,12 +715,17 @@ function declareWinner() {
 
 const PORT = process.env.PORT || 5000;
 
-server.listen(PORT, () => {
+server.listen(PORT, async () => {
   console.log(`Server running on port ${PORT}`);
   console.log('Auctioneer-Only Bidding Mode:');
   console.log('- Auctioneer: Controls all bidding via team selection');
   console.log('- Teams: View-only displays with roster and synergy');
   console.log('- Bidding: Only auctioneer can place bids for teams');
   console.log('Environment:', process.env.NODE_ENV || 'development');
-  loadPlayers();
+  
+  try {
+    await loadPlayers();
+  } catch (error) {
+    console.error('Failed to load players on startup:', error);
+  }
 });
