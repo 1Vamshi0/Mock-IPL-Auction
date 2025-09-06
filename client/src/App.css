@@ -184,7 +184,7 @@ body {
 .text-orange-800 { color: #9a3412; }
 .text-slate-600 { color: #475569; }
 .text-slate-800 { color: #1e293b; }
-.text-transparent { color: transparent; }
+.text-transparent { color:#ea580c ; }
 
 /* Colors - Borders */
 .border-red-400 { border-color: #f87171; }
