@@ -22,13 +22,13 @@ class ErrorBoundary extends React.Component {
   render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-100">
-          <div className="bg-red-100 border border-red-400 text-red-700 px-6 py-5 rounded-lg max-w-md text-center">
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="card bg-red-100 border border-red-400 text-red-700 px-6 py-5 max-w-md text-center">
             <h2 className="text-xl font-bold mb-2">Application Error</h2>
             <p className="mb-4">Something went wrong. Please refresh the page.</p>
             <button
               onClick={() => window.location.reload()}
-              className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 transition-colors"
+              className="btn-danger-solid"
             >
               Refresh Page
             </button>
@@ -56,7 +56,7 @@ function getRoute() {
 // Mirror the server's increment rule
 function computeNextIncrement(currentBidOrBase) {
   const bid = currentBidOrBase || 0;
-  if (bid < 5000000) return 500000;    // +50L
+  if (bid < 5000000) return 500000;    // +5L
   if (bid < 10000000) return 1000000;  // +1Cr
   if (bid < 20000000) return 2000000;  // +2Cr
   return 5000000;                      // +5Cr
@@ -448,20 +448,20 @@ function AppContent() {
   // Error screen
   if (state.error) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100">
-        <div className="bg-red-100 border border-red-400 text-red-700 px-6 py-5 rounded-lg max-w-lg text-center">
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="card bg-red-100 border border-red-400 text-red-700 px-6 py-5 max-w-lg text-center">
           <h2 className="text-xl font-bold mb-2">Connection Error</h2>
           <p className="mb-4">{state.error}</p>
           <div className="flex gap-2 justify-center">
             <button
               onClick={() => window.location.reload()}
-              className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 transition-colors"
+              className="btn-danger-solid"
             >
               Retry Connection
             </button>
             <button
               onClick={() => window.location.href = '/'}
-              className="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-600 transition-colors"
+              className="btn-secondary"
             >
               Back to Home
             </button>
@@ -480,9 +480,9 @@ function AppContent() {
 
   if (needsInitialData) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100">
+      <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <div className="spin rounded w-12 h-12 border-2 border-blue-500" style={{
+          <div className="spin rounded w-12 h-12 border-2 border-pink-500" style={{
             borderTopColor: 'transparent',
             margin: '0 auto 1rem'
           }}></div>
@@ -501,7 +501,7 @@ function AppContent() {
       {notifications.map(n => (
         <div
           key={n.id}
-          className={`notification px-4 py-2 rounded-lg text-sm ${n.type}`}
+          className={`notification px-4 py-2 text-sm ${n.type}`}
         >
           {n.message}
         </div>
@@ -510,7 +510,7 @@ function AppContent() {
   );
 
   const ConnectionStatus = () => (
-    <div className="bg-white p-3 rounded-lg shadow-sm border mb-4">
+    <div className="card bg-white p-3 mb-4">
       <div className="flex justify-between items-center text-sm">
         <div className="flex items-center gap-3">
           <span className="flex items-center gap-1">
@@ -549,7 +549,7 @@ function AppContent() {
       : 0;
 
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen">
         <NotificationContainer />
 
         {/* COMPACT HEADER */}
@@ -561,7 +561,7 @@ function AppContent() {
               </h1>
               <a
                 href="/"
-                className="text-white hover:text-red-700 underline transition-colors text-sm"
+                className="text-white hover:text-orange-200 underline transition-colors text-sm"
               >
                 ← Home
               </a>
@@ -570,7 +570,7 @@ function AppContent() {
               <div className="text-lg font-semibold">
                 Player {state.currentPlayerIndex} of {state.totalPlayers}
               </div>
-              <div className="text-blue-200 text-sm">
+              <div className="text-pink-200 text-sm">
                 {progress}% Complete
                 {state.isReAuction && <span className="ml-2">• Re-Auction</span>}
               </div>
@@ -585,12 +585,12 @@ function AppContent() {
         </header>
 
         {/* MAIN CONTENT - COMPACT LAYOUT */}
-        <main className="pb-24">
+        <main className="pb-24 p-4">
           {state.currentPlayer ? (
             <div className="main-compact-grid">
               {/* LEFT SIDE - PLAYER SPOTLIGHT */}
               <div className="player-spotlight">
-                <div className="flex items-center gap-4">
+                <div className="flex flex-col md:flex-row items-center md:items-start gap-4">
                   {/* Player Image */}
                   <div className="flex-shrink-0">
                     <img
@@ -605,7 +605,7 @@ function AppContent() {
                   </div>
 
                   {/* Player Details */}
-                  <div className="flex-1 min-w-0">
+                  <div className="flex-1 min-w-0 text-center md:text-left">
                     <h2 className="player-name-spotlight truncate">
                       {state.currentPlayer.name}
                     </h2>
@@ -625,13 +625,13 @@ function AppContent() {
                       </div>
                       <div className="player-detail-card">
                         <div className="text-slate-600 text-xs mb-1">Score</div>
-                        <div className="font-bold text-lg text-purple-600">
+                        <div className="font-bold text-lg text-pink-600">
                           {state.currentPlayer.baseScore}
                         </div>
                       </div>
                       <div className="player-detail-card">
                         <div className="text-slate-600 text-xs mb-1">Base Price</div>
-                        <div className="font-bold text-lg text-blue-600">
+                        <div className="font-bold text-lg text-orange-600">
                           {fmtL(state.currentPlayer.basePrice)}
                         </div>
                       </div>
@@ -654,7 +654,7 @@ function AppContent() {
                           <div className="current-bid-amount">
                             {fmtL(state.currentBid)}
                           </div>
-                          <div className="text-lg font-semibold text-amber-600 mb-2">
+                          <div className="text-lg font-semibold text-orange-500 mb-2">
                             Team {state.currentBidTeam}
                           </div>
                           {nextUpAmount > 0 && (
@@ -693,8 +693,8 @@ function AppContent() {
                         <div className="flex items-center justify-between w-full mb-3">
                           <div className="team-name-large">{team.name}</div>
                           {state.currentBidTeam === team.id && (
-                            <span className="text-xs bg-amber-500 text-black px-2 py-1 rounded font-bold">
-                              Highest Bidder
+                            <span className="text-xs bg-orange-400 text-white px-2 py-1 rounded-full font-bold">
+                              Highest
                             </span>
                           )}
                         </div>
@@ -708,7 +708,7 @@ function AppContent() {
                           
                           <div className="text-center">
                             <div className="text-xs text-slate-600 mb-1">Next Bid</div>
-                            <div className={`font-bold text-lg ${canTeamBid ? 'text-blue-600' : 'text-red-500'}`}>
+                            <div className={`font-bold text-lg ${canTeamBid ? 'text-orange-500' : 'text-red-500'}`}>
                               {fmtL(nextBidAmount)}
                             </div>
                           </div>
@@ -772,10 +772,6 @@ function AppContent() {
                 onClick={resetAuction}
                 disabled={isLoading || !isConnected}
                 className="control-button-modern btn-danger"
-                style={{
-                  backgroundColor: '#dc2626',
-                  borderColor: '#dc2626'
-                }}
               >
                 <span>🧹</span>
                 {isLoading ? 'PROCESSING...' : 'RESET AUCTION'}
@@ -800,16 +796,16 @@ function AppContent() {
     const myCurrentBid = state.currentBidTeam === teamId;
 
     return (
-      <div className="min-h-screen bg-gray-100 p-4">
+      <div className="min-h-screen p-4">
         <NotificationContainer />
 
         <div className="flex flex-wrap gap-2 mb-3">
-          <a href="/" className="text-sm text-blue-600 underline hover:text-green-600">
+          <a href="/" className="text-sm text-pink-600 underline hover:text-orange-600">
             ← Back to Role Select
           </a>
         </div>
 
-        <header className={`text-white p-6 rounded-lg mb-6 shadow-lg transition-all bg-purple-600 ${
+        <header className={`text-white p-6 rounded-2xl mb-6 header-gradient transition-all ${
           myCurrentBid 
         }`}>
           <div className="flex justify-between items-center">
@@ -832,20 +828,20 @@ function AppContent() {
 
         {/* Team statistics grid */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          <div className="bg-white p-4 rounded-lg shadow-sm text-center border">
+          <div className="card bg-white p-4 text-center">
             <div className="text-2xl font-bold text-green-600">{fmtCr(myTeam.remaining)}</div>
             <div className="text-gray-600 text-sm">Remaining Budget</div>
           </div>
-          <div className="bg-white p-4 rounded-lg shadow-sm text-center border">
+          <div className="card bg-white p-4 text-center">
             <div className="text-2xl font-bold text-red-600">{fmtCr(myTeam.spent)}</div>
             <div className="text-gray-600 text-sm">Money Spent</div>
           </div>
-          <div className="bg-white p-4 rounded-lg shadow-sm text-center border">
-            <div className="text-2xl font-bold text-purple-600">{myTeam.players.length}/8</div>
+          <div className="card bg-white p-4 text-center">
+            <div className="text-2xl font-bold text-pink-600">{myTeam.players.length}/8</div>
             <div className="text-gray-600 text-sm">Players Bought</div>
           </div>
-          <div className="bg-white p-4 rounded-lg shadow-sm text-center border">
-            <div className="text-2xl font-bold text-blue-600">
+          <div className="card bg-white p-4 text-center">
+            <div className="text-2xl font-bold text-orange-500">
               {Number.isFinite(myTeam.synergy) ? Math.round(myTeam.synergy) : '0'}
             </div>
             <div className="text-gray-600 text-sm">Team Synergy</div>
@@ -854,8 +850,8 @@ function AppContent() {
 
         {/* Current player section */}
         {state.currentPlayer && (
-          <div className="bg-white rounded-lg shadow-sm border mb-6 overflow-hidden">
-            <div className={`p-4 text-white font-semibold transition-all ${myCurrentBid ? 'bg-green-500' : 'bg-blue-500'}`}>
+          <div className="card bg-white mb-6 overflow-hidden">
+            <div className={`p-4 text-white font-semibold transition-all ${myCurrentBid ? 'bg-green-500' : 'bg-orange-500'}`}>
               <h2 className="text-xl font-bold">Current Player on Auction</h2>
               {myCurrentBid && (
                 <p className="text-green-100">You have the highest bid!</p>
@@ -867,7 +863,7 @@ function AppContent() {
                 <img
                   src={`/photos/${state.currentPlayer.sNo}.png`}
                   alt={state.currentPlayer.name}
-                  className="w-24 h-24 object-cover rounded-lg shadow-sm flex-shrink-0"
+                  className="w-24 h-24 object-cover rounded-2xl flex-shrink-0"
                   onError={(e) => {
                     e.target.src = '/default.jpg';
                     e.target.onerror = null;
@@ -897,7 +893,7 @@ function AppContent() {
                   </div>
 
                   {/* Current bidding status */}
-                  <div className={`p-3 rounded-lg border ${
+                  <div className={`p-3 rounded-2xl border ${
                     myCurrentBid 
                       ? 'bg-green-50 border-green-200' 
                       : 'bg-gray-50 border-gray-200'
@@ -912,7 +908,7 @@ function AppContent() {
                         <span className="text-gray-600">Current highest bid: </span>
                         <span className="font-bold">{fmtL(state.currentBid)}</span>
                         {state.currentBidTeam && (
-                          <span className={`ml-2 ${myCurrentBid ? 'text-green-600' : 'text-blue-600'}`}>
+                          <span className={`ml-2 ${myCurrentBid ? 'text-green-600' : 'text-orange-600'}`}>
                             by {myCurrentBid ? 'YOU' : `Team ${state.currentBidTeam}`}
                           </span>
                         )}
@@ -925,20 +921,20 @@ function AppContent() {
                 </div>
               </div>
 
-              <div className="text-center p-4 bg-blue-50 rounded-lg">
-                <p className="text-blue-800 font-semibold">Auctioneer controls all bidding</p>
-                <p className="text-blue-600 text-sm">Watch for your team's bids and player assignments</p>
+              <div className="text-center p-4 bg-orange-50 rounded-2xl">
+                <p className="text-orange-800 font-semibold">Auctioneer controls all bidding</p>
+                <p className="text-orange-600 text-sm">Watch for your team's bids and player assignments</p>
               </div>
             </div>
           </div>
         )}
 
         {/* Team roster section */}
-        <div className="bg-white rounded-lg shadow-sm border">
-          <div className="bg-gray-50 p-4 border-b">
+        <div className="card bg-white">
+          <div className="bg-gray-50 p-4 border-b" style={{ borderRadius: '18px 18px 0 0' }}>
             <h2 className="text-xl font-bold text-gray-800">My Team Roster ({myTeam.players.length}/8)</h2>
             <div className="text-sm text-gray-600 mt-1">
-              Total Synergy: <span className="font-semibold text-blue-600">
+              Total Synergy: <span className="font-semibold text-orange-600">
                 {Number.isFinite(myTeam.synergy) ? Math.round(myTeam.synergy) : '0'}
               </span>
             </div>
@@ -1019,11 +1015,11 @@ function AppContent() {
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-600">{player.role || 'N/A'}</td>
                         <td className="px-4 py-3">
-                          <span className="badge blue">
+                          <span className="badge pink">
                             {player.archetype || 'N/A'}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-sm font-semibold text-purple-600">
+                        <td className="px-4 py-3 text-sm font-semibold text-pink-600">
                           {player.baseScore || 0}
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-600">
@@ -1070,23 +1066,23 @@ function AppContent() {
       : '0';
 
     return (
-      <div className="min-h-screen bg-gray-100 p-4">
+      <div className="min-h-screen p-4">
         <NotificationContainer />
 
         <div className="flex flex-wrap gap-2 mb-3">
-          <a href="/" className="text-sm text-blue-600 underline hover:text-white">
+          <a href="/" className="text-sm text-pink-600 underline hover:text-orange-500">
             ← Back to Role Select
           </a>
         </div>
 
-        <header className="bg-purple-600 text-white p-4 rounded-lg mb-4 shadow-lg">
+        <header className="header-gradient text-white p-4 rounded-2xl mb-4">
           <h1 className="text-2xl font-bold text-center">CPL Auction – Observer</h1>
           <div className="text-center mt-2">
             Progress: {progress}% | {state.isReAuction ? 'Re-Auction Mode' : 'Main Auction'}
           </div>
-          <div className="mt-2 progress-bar" style={{ backgroundColor: 'rgba(147, 51, 234, 0.6)' }}>
+          <div className="mt-2 progress-bar" style={{ backgroundColor: 'rgba(255, 255, 255, 0.2)' }}>
             <div 
-              className="bg-white h-2 transition-all" 
+              className="bg-white h-2 transition-all rounded-full" 
               style={{ width: `${Math.min(100, Math.max(0, Number(progress)))}%` }}
             ></div>
           </div>
@@ -1094,31 +1090,43 @@ function AppContent() {
 
         <ConnectionStatus />
 
-        {/* Teams overview grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+        {/* Teams overview grid - UPDATED LAYOUT */}
+        <div className="grid grid-cols-2 gap-4 mb-6"> {/* UPDATED THIS LINE */}
           {state.teams.map(team => (
-            <div key={team.id} className="bg-white p-4 rounded-lg shadow-sm border transition-all hover:shadow-lg">
-              <div className="flex justify-between items-center mb-2">
-                <h3 className="font-bold text-lg">{team.name}</h3>
-                <div className="flex items-center gap-2">
-                  <span className={`text-sm ${
-                    state.connectedTeams.includes(team.id) ? 'text-green-600' : 'text-red-600'
-                  }`}>
-                    {state.connectedTeams.includes(team.id) ? '🟢 Online' : '🔴 Offline'}
-                  </span>
+            <div key={team.id} className="card bg-white p-4 transition-all hover:transform hover:-translate-y-1">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="font-bold text-xl">{team.name}</h3>
+                <span className={`text-sm font-semibold ${
+                  state.connectedTeams.includes(team.id) ? 'text-green-600' : 'text-red-600'
+                }`}>
+                  {state.connectedTeams.includes(team.id) ? '● Online' : '● Offline'}
+                </span>
+              </div>
+              
+              <div className="observer-stats-grid">
+                <div className="observer-stat-item">
+                  <div className="stat-label">Budget Left</div>
+                  <div className="stat-value text-green-600">{fmtCr(team.remaining)}</div>
+                </div>
+                <div className="observer-stat-item">
+                  <div className="stat-label">Players</div>
+                  <div className="stat-value text-pink-600">{team.players.length}/8</div>
+                </div>
+                <div className="observer-stat-item">
+                  <div className="stat-label">Money Spent</div>
+                  <div className="stat-value text-red-600">{fmtCr(team.spent)}</div>
+                </div>
+                <div className="observer-stat-item">
+                  <div className="stat-label">Synergy</div>
+                  <div className="stat-value text-orange-600">
+                    {Number.isFinite(team.synergy) ? Math.round(team.synergy) : '0'}
+                  </div>
                 </div>
               </div>
-              <div className="space-y-1 text-sm text-gray-700">
-                <div>Budget Left: <span className="font-semibold">{fmtCr(team.remaining)}</span></div>
-                <div>Spent: <span className="font-semibold">{fmtCr(team.spent)}</span></div>
-                <div>Players: <span className="font-semibold">{team.players.length}/8</span></div>
-                <div>Synergy: <span className="font-semibold text-blue-600">
-                  {Number.isFinite(team.synergy) ? Math.round(team.synergy) : '0'}
-                </span></div>
-              </div>
+
               {state.currentBidTeam === team.id && (
-                <div className="mt-2 text-xs badge yellow">
-                  Highest Bidder
+                <div className="mt-4 text-center badge orange">
+                  🏆 Highest Bidder
                 </div>
               )}
             </div>
@@ -1127,12 +1135,12 @@ function AppContent() {
 
         {/* Current player display */}
         {state.currentPlayer && (
-          <div className="bg-white p-6 rounded-lg shadow-sm border transition-all">
+          <div className="card bg-white p-6">
             <div className="flex items-start gap-4 mb-4">
               <img
                 src={`/photos/${state.currentPlayer.sNo}.png`}
                 alt={state.currentPlayer.name}
-                className="w-24 h-24 object-cover rounded-lg flex-shrink-0 shadow-md"
+                className="w-24 h-24 object-cover rounded-2xl flex-shrink-0"
                 onError={(e) => {
                   e.target.src = '/default.jpg';
                   e.target.onerror = null;
@@ -1149,10 +1157,10 @@ function AppContent() {
               </div>
             </div>
 
-            <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+            <div className="bg-gray-50 p-4 rounded-2xl border border-gray-200">
               {state.currentBid === 0 ? (
                 <div className="text-lg text-gray-700">
-                  Starting at base price: <span className="font-bold text-blue-600">{fmtL(state.currentPlayer.basePrice)}</span>
+                  Starting at base price: <span className="font-bold text-orange-600">{fmtL(state.currentPlayer.basePrice)}</span>
                 </div>
               ) : (
                 <div className="text-lg text-gray-700">
@@ -1168,7 +1176,7 @@ function AppContent() {
 
         {/* No current player message */}
         {!state.currentPlayer && (
-          <div className="bg-white p-6 rounded-lg shadow-sm border text-center">
+          <div className="card bg-white p-6 text-center">
             <div className="text-6xl mb-4">🏏</div>
             <h2 className="text-xl font-bold text-gray-700 mb-2">No Current Player</h2>
             <p className="text-gray-500">
@@ -1185,16 +1193,16 @@ function AppContent() {
 
   // Landing Page (Role Selection)
   return (
-    <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
-      <div className="bg-white p-8 rounded-lg shadow-lg max-w-md w-full text-center border">
+    <div className="min-h-screen flex items-center justify-center p-4">
+      <div className="card bg-white p-8 max-w-md w-full text-center">
         <div className="text-6xl mb-4">🏏</div>
-        <h1 className="text-3xl font-bold text-gray-800 mb-2">CPL Auction</h1>
+        <h1 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-pink-500 to-orange-400 mb-2">CPL Auction</h1>
         <p className="text-gray-600 mb-6">Select your role to join the auction</p>
 
         <div className="space-y-3">
           <button
             onClick={() => (window.location.href = '/auctioneer')}
-            className="w-full bg-blue-500 text-white py-3 px-4 rounded-lg hover:bg-blue-600 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400"
+            className="w-full btn-primary"
           >
             Join as Auctioneer
           </button>
@@ -1204,7 +1212,7 @@ function AppContent() {
               <button
                 key={teamNum}
                 onClick={() => (window.location.href = `/team/${teamNum}`)}
-                className="bg-green-500 text-white py-2 px-3 rounded hover:bg-green-600 transition-colors text-sm focus:outline-none focus:ring-2 focus:ring-green-400"
+                className="w-full btn-success"
               >
                 Team {teamNum}
               </button>
@@ -1213,12 +1221,12 @@ function AppContent() {
 
           <button
             onClick={() => (window.location.href = '/observer')}
-            className="w-full bg-red-500 text-white py-3 px-4 rounded-lg hover:bg-red-600 transition-colors focus:outline-none focus:ring-2 focus:ring-red-400"
+            className="w-full btn-secondary"
           >
             Join as Observer
           </button>
 
-          <div className="text-xs text-gray-500 mt-6 p-2 bg-gray-50 rounded">
+          <div className="text-xs text-gray-500 mt-6 p-2 bg-gray-50 rounded-lg">
             <div>Backend: <code className="bg-gray-200 px-1 rounded">{backendUrl}</code></div>
             <div className="mt-1">
               Status: {isConnected ? '🟢 Ready' : '🔴 Not Connected'}
