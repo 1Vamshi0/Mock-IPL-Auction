@@ -93,6 +93,172 @@ function useNotifications() {
   return [notifications, addNotification];
 }
 
+// All Players Table Component
+function AllPlayersTable({ allPlayers, currentPlayer, teams }) {
+  const [sortConfig, setSortConfig] = useState({ key: 'sNo', direction: 'asc' });
+  const [filterRole, setFilterRole] = useState('all');
+  const [searchTerm, setSearchTerm] = useState('');
+
+  const handleSort = (key) => {
+    setSortConfig(prev => ({
+      key,
+      direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc'
+    }));
+  };
+
+  const filteredAndSortedPlayers = useMemo(() => {
+    let filtered = allPlayers.filter(player => {
+      const matchesRole = filterRole === 'all' || player.role === filterRole;
+      const matchesSearch = searchTerm === '' || 
+        player.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        player.archetype.toLowerCase().includes(searchTerm.toLowerCase());
+      return matchesRole && matchesSearch;
+    });
+
+    return filtered.sort((a, b) => {
+      const aVal = a[sortConfig.key];
+      const bVal = b[sortConfig.key];
+      
+      if (typeof aVal === 'string') {
+        return sortConfig.direction === 'asc' 
+          ? aVal.localeCompare(bVal)
+          : bVal.localeCompare(aVal);
+      }
+      
+      return sortConfig.direction === 'asc' ? aVal - bVal : bVal - aVal;
+    });
+  }, [allPlayers, sortConfig, filterRole, searchTerm]);
+
+  const uniqueRoles = [...new Set(allPlayers.map(p => p.role))].sort();
+
+  const getRowClassName = (player) => {
+    if (currentPlayer && player.sNo === currentPlayer.sNo) {
+      return 'bg-blue-100 border-blue-300 font-semibold'; // Current player
+    }
+    if (player.status === 'sold') {
+      return 'bg-green-50 text-green-800'; // Sold
+    }
+    return 'hover:bg-gray-50'; // Available
+  };
+
+  const getStatusDisplay = (player) => {
+    if (currentPlayer && player.sNo === currentPlayer.sNo) {
+      return <span className="badge bg-blue-500 text-white">Current</span>;
+    }
+    if (player.status === 'sold') {
+      const team = teams.find(t => t.id === player.soldToTeam);
+      return (
+        <div>
+          <span className="badge bg-green-500 text-white">Sold</span>
+          {team && <div className="text-xs text-green-700 mt-1">{team.name}</div>}
+          <div className="text-xs text-green-600">{fmtL(player.soldPrice)}</div>
+        </div>
+      );
+    }
+    return <span className="badge bg-gray-400 text-white">Available</span>;
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Filters */}
+      <div className="flex flex-wrap gap-4 items-center">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Filter by Role</label>
+          <select
+            value={filterRole}
+            onChange={(e) => setFilterRole(e.target.value)}
+            className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+          >
+            <option value="all">All Roles</option>
+            {uniqueRoles.map(role => (
+              <option key={role} value={role}>{role}</option>
+            ))}
+          </select>
+        </div>
+        
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Search</label>
+          <input
+            type="text"
+            placeholder="Player name or archetype..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="px-3 py-2 border border-gray-300 rounded-lg text-sm w-48"
+          />
+        </div>
+        
+        <div className="text-sm text-gray-600 mt-6">
+          Showing {filteredAndSortedPlayers.length} of {allPlayers.length} players
+        </div>
+      </div>
+
+      {/* Table */}
+      <div className="overflow-x-auto border rounded-lg">
+        <table className="min-w-full divide-y divide-gray-200">
+          <thead className="bg-gray-50">
+            <tr>
+              <th 
+                className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                onClick={() => handleSort('sNo')}
+              >
+                #
+              </th>
+              <th 
+                className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                onClick={() => handleSort('name')}
+              >
+                Player Name
+              </th>
+              <th 
+                className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                onClick={() => handleSort('role')}
+              >
+                Role
+              </th>
+              <th 
+                className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                onClick={() => handleSort('archetype')}
+              >
+                Archetype
+              </th>
+              <th 
+                className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                onClick={() => handleSort('baseScore')}
+              >
+                Base Score
+              </th>
+              <th 
+                className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                onClick={() => handleSort('basePrice')}
+              >
+                Base Price
+              </th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Status
+              </th>
+            </tr>
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-200">
+            {filteredAndSortedPlayers.map((player) => (
+              <tr key={player.sNo} className={getRowClassName(player)}>
+                <td className="px-4 py-3 text-sm text-gray-600">{player.sNo}</td>
+                <td className="px-4 py-3 text-sm font-medium text-gray-900">{player.name}</td>
+                <td className="px-4 py-3 text-sm text-gray-600">{player.role}</td>
+                <td className="px-4 py-3 text-sm">
+                  <span className="badge pink">{player.archetype}</span>
+                </td>
+                <td className="px-4 py-3 text-sm font-semibold text-pink-600">{player.baseScore}</td>
+                <td className="px-4 py-3 text-sm text-gray-600">{fmtL(player.basePrice)}</td>
+                <td className="px-4 py-3 text-sm">{getStatusDisplay(player)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 function App() {
   return (
     <ErrorBoundary>
@@ -122,12 +288,14 @@ function AppContent() {
     myTeam: null,
     connectedTeams: [],
     auctioneerConnected: false,
-    nextIncrement: 0
+    nextIncrement: 0,
+    allPlayers: [] // New: all players with status
   });
 
   const [isConnected, setIsConnected] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [notifications, addNotification] = useNotifications();
+  const [activeTeamTab, setActiveTeamTab] = useState('roster'); // New: tab state for team view
   const socketRef = useRef(null);
   const reconnectAttempts = useRef(0);
   const maxReconnectAttempts = 5;
@@ -734,6 +902,25 @@ function AppContent() {
               </p>
             </div>
           )}
+
+          {/* ALL PLAYERS TABLE FOR AUCTIONEER */}
+          {state.allPlayers.length > 0 && (
+            <div className="mt-8">
+              <div className="card bg-white">
+                <div className="bg-gray-50 p-4 border-b rounded-t-2xl">
+                  <h2 className="text-xl font-bold text-gray-800">All Players Overview</h2>
+                  <p className="text-sm text-gray-600 mt-1">Track the status of all players in the auction</p>
+                </div>
+                <div className="p-6">
+                  <AllPlayersTable 
+                    allPlayers={state.allPlayers} 
+                    currentPlayer={state.currentPlayer}
+                    teams={state.teams}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
         </main>
 
         {/* COMPACT CONTROL PANEL */}
@@ -753,7 +940,7 @@ function AppContent() {
               disabled={isLoading || !isConnected || !state.currentPlayer}
               className="control-button-modern btn-skip"
             >
-              <span>⏭️</span>
+              <span>⭐️</span>
               {isLoading ? 'PROCESSING...' : 'SKIP'}
             </button>
             
@@ -783,7 +970,7 @@ function AppContent() {
     );
   }
 
-  // Team View Layout
+  // Team View Layout with Tabs
   if (isTeamView) {
     const myTeam = state.myTeam || {
       id: teamId,
@@ -929,129 +1116,174 @@ function AppContent() {
           </div>
         )}
 
-        {/* Team roster section */}
-        <div className="card bg-white">
-          <div className="bg-gray-50 p-4 border-b" style={{ borderRadius: '18px 18px 0 0' }}>
-            <h2 className="text-xl font-bold text-gray-800">My Team Roster ({myTeam.players.length}/8)</h2>
-            <div className="text-sm text-gray-600 mt-1">
-              Total Synergy: <span className="font-semibold text-orange-600">
-                {Number.isFinite(myTeam.synergy) ? Math.round(myTeam.synergy) : '0'}
-              </span>
-            </div>
+        {/* Tab Navigation */}
+        <div className="card bg-white mb-6">
+          <div className="flex border-b">
+            <button
+              onClick={() => setActiveTeamTab('roster')}
+              className={`px-6 py-3 font-semibold transition-colors ${
+                activeTeamTab === 'roster' 
+                  ? 'text-pink-600 border-b-2 border-pink-600 bg-pink-50' 
+                  : 'text-gray-600 hover:text-gray-800'
+              }`}
+            >
+              My Team Roster ({myTeam.players.length}/8)
+            </button>
+            <button
+              onClick={() => setActiveTeamTab('allplayers')}
+              className={`px-6 py-3 font-semibold transition-colors ${
+                activeTeamTab === 'allplayers' 
+                  ? 'text-pink-600 border-b-2 border-pink-600 bg-pink-50' 
+                  : 'text-gray-600 hover:text-gray-800'
+              }`}
+            >
+              All Players ({state.allPlayers.length})
+            </button>
           </div>
 
-          <div className="overflow-x-auto">
-            {myTeam.players.length === 0 ? (
-              <div className="text-center py-12">
-                <div className="text-6xl mb-4">👥</div>
-                <h3 className="text-xl font-bold text-gray-700 mb-2">No Players Yet</h3>
-                <p className="text-gray-500">Your purchased players will appear here</p>
+          {/* Tab Content */}
+          <div className="p-6">
+            {activeTeamTab === 'roster' && (
+              <div>
+                <div className="mb-4">
+                  <div className="text-sm text-gray-600">
+                    Total Synergy: <span className="font-semibold text-orange-600">
+                      {Number.isFinite(myTeam.synergy) ? Math.round(myTeam.synergy) : '0'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto">
+                  {myTeam.players.length === 0 ? (
+                    <div className="text-center py-12">
+                      <div className="text-6xl mb-4">👥</div>
+                      <h3 className="text-xl font-bold text-gray-700 mb-2">No Players Yet</h3>
+                      <p className="text-gray-500">Your purchased players will appear here</p>
+                    </div>
+                  ) : (
+                    <table>
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600">#</th>
+                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600">Player Name</th>
+                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600">Role</th>
+                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600">Archetype</th>
+                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600">Base Score</th>
+                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600">Base Price</th>
+                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600">Bought Price</th>
+                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600">Individual Synergy</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y">
+                        {myTeam.players.map((player, index) => {
+                          // Calculate individual synergy contribution
+                          const calculateIndividualSynergy = (targetPlayer, roster) => {
+                            if (!targetPlayer || !roster) return targetPlayer?.baseScore || 0;
+                            
+                            let baseScore = targetPlayer.baseScore || 0;
+                            let synergyBonus = 0;
+                            
+                            // Calculate synergy with other players
+                            roster.forEach((otherPlayer, otherIndex) => {
+                              if (otherIndex === index || !otherPlayer?.archetype || !targetPlayer?.archetype) return;
+                              
+                              let arch1 = targetPlayer.archetype.trim();
+                              let arch2 = otherPlayer.archetype.trim();
+                              
+                              if (!arch1 || !arch2) return;
+                              
+                              // Consistent ordering for lookup
+                              if (arch1 > arch2) [arch1, arch2] = [arch2, arch1];
+                              const key = `${arch1}-${arch2}`;
+                              
+                              // You'll need to import or define synergy rules in frontend
+                              // For now, using simplified rules - ideally sync with backend
+                              const synergyRules = {
+                                positive: {
+                                  'AO-AN': 20, 'BA-FI': 15, 'AN-WK': 15, 'BA-BO': 20,
+                                  'PA-SP': 25, 'PA-PA': 10, 'CS-PA': 20, 'CS-SP': 15,
+                                  'BA-CS': 10, 'BO-CS': 10,
+                                },
+                                negative: {
+                                  'AO-AO': -15, 'FI-FI': -10, 'SP-SP': -5,
+                                  'BA-BA': -5, 'WK-WK': -10, 'CS-CS': -10, 'BO-BO': -5,
+                                }
+                              };
+                              
+                              synergyBonus += synergyRules.positive[key] || 0;
+                              synergyBonus += synergyRules.negative[key] || 0;
+                            });
+                            
+                            return baseScore + synergyBonus;
+                          };
+                          
+                          const individualSynergy = player.individualSynergy || 
+                            calculateIndividualSynergy(player, myTeam.players);
+                          
+                          return (
+                            <tr key={player.sNo || index} className="hover:bg-gray-50">
+                              <td className="px-4 py-3 text-sm text-gray-600">{index + 1}</td>
+                              <td className="px-4 py-3">
+                                <div className="font-semibold text-gray-800">{player.name || 'Unknown'}</div>
+                              </td>
+                              <td className="px-4 py-3 text-sm text-gray-600">{player.role || 'N/A'}</td>
+                              <td className="px-4 py-3">
+                                <span className="badge pink">
+                                  {player.archetype || 'N/A'}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3 text-sm font-semibold text-pink-600">
+                                {player.baseScore || 0}
+                              </td>
+                              <td className="px-4 py-3 text-sm text-gray-600">
+                                {fmtL(player.basePrice || 0)}
+                              </td>
+                              <td className="px-4 py-3 text-sm font-semibold text-green-600">
+                                {fmtL(player.boughtPrice || 0)}
+                              </td>
+                              <td className="px-4 py-3 text-sm">
+                                <span className={`font-semibold ${
+                                  individualSynergy > (player.baseScore || 0) 
+                                    ? 'text-green-600' 
+                                    : individualSynergy < (player.baseScore || 0)
+                                    ? 'text-red-600'
+                                    : 'text-gray-600'
+                                }`}>
+                                  {Math.round(individualSynergy)}
+                                </span>
+                                <div className="text-xs text-gray-500">
+                                  {individualSynergy > (player.baseScore || 0) 
+                                    ? `+${Math.round(individualSynergy - (player.baseScore || 0))} synergy`
+                                    : individualSynergy < (player.baseScore || 0)
+                                    ? `${Math.round(individualSynergy - (player.baseScore || 0))} synergy`
+                                    : 'No synergy effect'
+                                  }
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
               </div>
-            ) : (
-              <table>
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600">#</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600">Player Name</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600">Role</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600">Archetype</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600">Base Score</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600">Base Price</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600">Bought Price</th>
-                    <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600">Individual Synergy</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {myTeam.players.map((player, index) => {
-                    // Calculate individual synergy contribution
-                    const calculateIndividualSynergy = (targetPlayer, roster) => {
-                      if (!targetPlayer || !roster) return targetPlayer?.baseScore || 0;
-                      
-                      let baseScore = targetPlayer.baseScore || 0;
-                      let synergyBonus = 0;
-                      
-                      // Calculate synergy with other players
-                      roster.forEach((otherPlayer, otherIndex) => {
-                        if (otherIndex === index || !otherPlayer?.archetype || !targetPlayer?.archetype) return;
-                        
-                        let arch1 = targetPlayer.archetype.trim();
-                        let arch2 = otherPlayer.archetype.trim();
-                        
-                        if (!arch1 || !arch2) return;
-                        
-                        // Consistent ordering for lookup
-                        if (arch1 > arch2) [arch1, arch2] = [arch2, arch1];
-                        const key = `${arch1}-${arch2}`;
-                        
-                        // You'll need to import or define synergy rules in frontend
-                        // For now, using simplified rules - ideally sync with backend
-                        const synergyRules = {
-                          positive: {
-                            'AO-AN': 20, 'BA-FI': 15, 'AN-WK': 15, 'BA-BO': 20,
-                            'PA-SP': 25, 'PA-PA': 10, 'CS-PA': 20, 'CS-SP': 15,
-                            'BA-CS': 10, 'BO-CS': 10,
-                          },
-                          negative: {
-                            'AO-AO': -15, 'FI-FI': -10, 'SP-SP': -5,
-                            'BA-BA': -5, 'WK-WK': -10, 'CS-CS': -10, 'BO-BO': -5,
-                          }
-                        };
-                        
-                        synergyBonus += synergyRules.positive[key] || 0;
-                        synergyBonus += synergyRules.negative[key] || 0;
-                      });
-                      
-                      return baseScore + synergyBonus;
-                    };
-                    
-                    const individualSynergy = player.individualSynergy || 
-                      calculateIndividualSynergy(player, myTeam.players);
-                    
-                    return (
-                      <tr key={player.sNo || index} className="hover:bg-gray-50">
-                        <td className="px-4 py-3 text-sm text-gray-600">{index + 1}</td>
-                        <td className="px-4 py-3">
-                          <div className="font-semibold text-gray-800">{player.name || 'Unknown'}</div>
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-600">{player.role || 'N/A'}</td>
-                        <td className="px-4 py-3">
-                          <span className="badge pink">
-                            {player.archetype || 'N/A'}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-sm font-semibold text-pink-600">
-                          {player.baseScore || 0}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-600">
-                          {fmtL(player.basePrice || 0)}
-                        </td>
-                        <td className="px-4 py-3 text-sm font-semibold text-green-600">
-                          {fmtL(player.boughtPrice || 0)}
-                        </td>
-                        <td className="px-4 py-3 text-sm">
-                          <span className={`font-semibold ${
-                            individualSynergy > (player.baseScore || 0) 
-                              ? 'text-green-600' 
-                              : individualSynergy < (player.baseScore || 0)
-                              ? 'text-red-600'
-                              : 'text-gray-600'
-                          }`}>
-                            {Math.round(individualSynergy)}
-                          </span>
-                          <div className="text-xs text-gray-500">
-                            {individualSynergy > (player.baseScore || 0) 
-                              ? `+${Math.round(individualSynergy - (player.baseScore || 0))} synergy`
-                              : individualSynergy < (player.baseScore || 0)
-                              ? `${Math.round(individualSynergy - (player.baseScore || 0))} synergy`
-                              : 'No synergy effect'
-                            }
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+            )}
+
+            {activeTeamTab === 'allplayers' && state.allPlayers.length > 0 && (
+              <AllPlayersTable 
+                allPlayers={state.allPlayers} 
+                currentPlayer={state.currentPlayer}
+                teams={state.teams}
+              />
+            )}
+
+            {activeTeamTab === 'allplayers' && state.allPlayers.length === 0 && (
+              <div className="text-center py-12">
+                <div className="text-6xl mb-4">📋</div>
+                <h3 className="text-xl font-bold text-gray-700 mb-2">Player Data Loading</h3>
+                <p className="text-gray-500">All players will appear here once the auction starts</p>
+              </div>
             )}
           </div>
         </div>
@@ -1076,7 +1308,7 @@ function AppContent() {
         </div>
 
         <header className="header-gradient text-white p-4 rounded-2xl mb-4">
-          <h1 className="text-2xl font-bold text-center">CPL Auction – Observer</h1>
+          <h1 className="text-2xl font-bold text-center">CPL Auction — Observer</h1>
           <div className="text-center mt-2">
             Progress: {progress}% | {state.isReAuction ? 'Re-Auction Mode' : 'Main Auction'}
           </div>
@@ -1135,7 +1367,7 @@ function AppContent() {
 
         {/* Current player display */}
         {state.currentPlayer && (
-          <div className="card bg-white p-6">
+          <div className="card bg-white p-6 mb-6">
             <div className="flex items-start gap-4 mb-4">
               <img
                 src={`/photos/${state.currentPlayer.sNo}.png`}
@@ -1170,6 +1402,23 @@ function AppContent() {
               <div className="text-sm text-gray-500 mt-1">
                 Next increment: {fmtL(state.nextIncrement || computeNextIncrement(state.currentBid || state.currentPlayer.basePrice))}
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* All Players Table for Observer */}
+        {state.allPlayers.length > 0 && (
+          <div className="card bg-white mb-6">
+            <div className="bg-gray-50 p-4 border-b rounded-t-2xl">
+              <h2 className="text-xl font-bold text-gray-800">All Players Overview</h2>
+              <p className="text-sm text-gray-600 mt-1">Complete auction status tracker</p>
+            </div>
+            <div className="p-6">
+              <AllPlayersTable 
+                allPlayers={state.allPlayers} 
+                currentPlayer={state.currentPlayer}
+                teams={state.teams}
+              />
             </div>
           </div>
         )}

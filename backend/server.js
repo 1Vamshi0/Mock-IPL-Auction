@@ -20,6 +20,7 @@ app.use(express.static(path.join(__dirname, 'client', 'dist')));
 app.use('/photos', express.static(path.join(__dirname, 'client', 'public', 'photos')));
 
 let players = [];
+let allPlayers = []; // New: master list with status tracking
 let unsold = [];
 let currentPlayerIndex = 0;
 let sets = [[], [], []];
@@ -33,7 +34,7 @@ let connectedTeams = new Set();
 let teams = Array.from({ length: 6 }, (_, i) => ({
   id: i + 1,
   name: `Team ${i + 1}`,
-  budget: 450000000, // 100 Cr
+  budget: 450000000, // 45 Cr
   remaining: 450000000,
   spent: 0,
   players: [],
@@ -76,6 +77,20 @@ function sanitizeString(str) {
   return str ? str.toString().trim() : '';
 }
 
+// Update player status in allPlayers array
+function updatePlayerStatus(playerSNo, status, soldToTeam = null, soldPrice = null) {
+  const playerIndex = allPlayers.findIndex(p => p.sNo === playerSNo);
+  if (playerIndex !== -1) {
+    allPlayers[playerIndex].status = status;
+    if (soldToTeam) {
+      allPlayers[playerIndex].soldToTeam = soldToTeam;
+    }
+    if (soldPrice) {
+      allPlayers[playerIndex].soldPrice = soldPrice;
+    }
+  }
+}
+
 // Load players from CSV
 function loadPlayers() {
   return new Promise((resolve, reject) => {
@@ -88,8 +103,9 @@ function loadPlayers() {
       return;
     }
 
-    // Reset players array
+    // Reset all player arrays
     players = [];
+    allPlayers = [];
     
     const requiredColumns = ['S.No', 'Name', 'Role', 'Archetype', 'Base_Score', 'Base_Price'];
     let headerValidated = false;
@@ -117,11 +133,15 @@ function loadPlayers() {
             baseScore: parseInt(row.Base_Score) || 0,
             // CSV base price is in Lakhs → convert to rupees
             basePrice: (parseInt(row.Base_Price) || 0) * 100000,
+            status: 'available', // New: track player status
+            soldToTeam: null,    // New: track which team bought player
+            soldPrice: null      // New: track sold price
           };
           
           // Validate required fields
           if (player.name && player.archetype && player.baseScore > 0 && player.basePrice > 0) {
             players.push(player);
+            allPlayers.push({ ...player }); // Create copy for allPlayers tracking
           } else {
             console.warn(`Skipping invalid player row: ${JSON.stringify(row)}`);
           }
@@ -152,6 +172,13 @@ function loadPlayers() {
           players.slice(playersPerSet, playersPerSet * 2), 
           players.slice(playersPerSet * 2)
         ];
+
+        // Also shuffle allPlayers to match the same order for consistency
+        allPlayers = allPlayers.sort((a, b) => {
+          const aIndex = players.findIndex(p => p.sNo === a.sNo);
+          const bIndex = players.findIndex(p => p.sNo === b.sNo);
+          return aIndex - bIndex;
+        });
         
         console.log(`Successfully loaded ${players.length} players`);
         console.log(`Sets: ${sets[0].length}, ${sets[1].length}, ${sets[2].length}`);
@@ -283,7 +310,8 @@ function emitUpdate() {
       totalPlayers,
       connectedTeams: Array.from(connectedTeams),
       auctioneerConnected,
-      nextIncrement
+      nextIncrement,
+      allPlayers: allPlayers // New: include all players with status
     };
 
     io.to('auctioneer').emit('update', baseUpdateData);
@@ -309,7 +337,9 @@ function emitUpdate() {
       '| Current Bid:',
       currentBid,
       '| Next +',
-      nextIncrement
+      nextIncrement,
+      '| All Players:',
+      allPlayers.length
     );
   } catch (error) {
     console.error('Error in emitUpdate:', error);
@@ -396,6 +426,7 @@ app.get('/health', (req, res) => {
   res.json({
     status: 'ok',
     playersLoaded: players.length,
+    allPlayersTracked: allPlayers.length,
     currentPlayer: getCurrentPlayer()?.name || 'None',
     isReAuction,
     auctioneerConnected,
@@ -518,7 +549,7 @@ io.on('connection', (socket) => {
     emitUpdate();
   });
 
-  // Sell player with individual synergy calculation
+  // Sell player with individual synergy calculation and status update
   socket.on('soldPlayer', () => {
     if (!socket.isAuctioneer) {
       socket.emit('error', 'Only auctioneer can mark players as sold');
@@ -561,6 +592,9 @@ io.on('connection', (socket) => {
     
     team.players.push(playerWithSynergy);
     team.synergy = calculateSynergy(team.players);
+
+    // Update player status in allPlayers tracking
+    updatePlayerStatus(player.sNo, 'sold', currentBidTeam, currentBid);
   
     console.log(`Player sold: ${player.name} to Team ${currentBidTeam} for ₹${(currentBid/100000).toFixed(2)}L`);
   
@@ -600,6 +634,9 @@ io.on('connection', (socket) => {
     const player = getCurrentPlayer();
     if (player) {
       unsold.push(player);
+      // Update player status - skipped players remain 'available' for re-auction
+      updatePlayerStatus(player.sNo, 'available');
+      
       console.log(`Player skipped: ${player.name}`);
       io.emit('playerSkipped', { 
         player, 
@@ -721,6 +758,7 @@ server.listen(PORT, async () => {
   console.log('- Auctioneer: Controls all bidding via team selection');
   console.log('- Teams: View-only displays with roster and synergy');
   console.log('- Bidding: Only auctioneer can place bids for teams');
+  console.log('- All Players: Real-time status tracking enabled');
   console.log('Environment:', process.env.NODE_ENV || 'development');
   
   try {
