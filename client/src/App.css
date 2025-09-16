@@ -137,6 +137,7 @@ body {
 .grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .grid-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.grid-cols-6 { grid-template-columns: repeat(6, minmax(0, 1fr)); } /* NEW: Added for 6 teams */
 
 /* Typography */
 .text-xs { font-size: 0.75rem; line-height: 1rem; }
@@ -184,7 +185,7 @@ body {
 .text-orange-800 { color: #9a3412; }
 .text-slate-600 { color: #475569; }
 .text-slate-800 { color: #1e293b; }
-.text-transparent { color:#ea580c ; }
+.text-transparent { color: #ea580c; }
 
 /* Colors - Borders */
 .border-red-400 { border-color: #f87171; }
@@ -205,20 +206,6 @@ body {
 .right-4 { right: 1rem; }
 .z-50 { z-index: 50; }
 .underline { text-decoration: underline; }
-/* Existing styles preserved */
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
-
-body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  line-height: 1.6;
-  color: #333;
-  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-  min-height: 100vh;
-}
 
 /* Notifications */
 .notification {
@@ -368,548 +355,16 @@ body {
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
 }
 
-/* Main grid layout */
-.main-compact-grid {
-  display: grid;
-  grid-template-columns: 1fr 400px;
-  gap: 24px;
-  max-width: 1400px;
-  margin: 0 auto;
-}
-
-@media (max-width: 1200px) {
-  .main-compact-grid {
-    grid-template-columns: 1fr;
-    gap: 16px;
-  }
-}
-
 /* Player spotlight */
-.player-spotlight {
-  background: white;
-  border-radius: 20px;
-  padding: 24px;
-  box-shadow: 0 10px 25px -3px rgba(0, 0, 0, 0.1);
-}
-
-.player-image-spotlight {
-  width: 120px;
-  height: 120px;
-  object-fit: cover;
-  border-radius: 20px;
-  border: 4px solid #f1f5f9;
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
-}
-
-.player-name-spotlight {
-  font-size: 2rem;
-  font-weight: 800;
-  color: #1e293b;
-  margin-bottom: 16px;
-}
-
-.player-details-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 16px;
-  margin-bottom: 20px;
-}
-
-@media (max-width: 640px) {
-  .player-details-grid {
-    grid-template-columns: 1fr;
-    gap: 12px;
-  }
-}
-
-.player-detail-card {
-  text-align: center;
-  padding: 12px;
-  border-radius: 12px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-}
-
-.bid-status-spotlight {
-  text-align: center;
-  padding: 20px;
-  border-radius: 16px;
-  background: #f8fafc;
-  border: 2px solid #e2e8f0;
-  margin-top: 16px;
-  transition: all 0.3s ease;
-}
-
-.bid-status-spotlight.active-bidding {
-  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
-  border-color: #f59e0b;
-  box-shadow: 0 0 20px rgba(245, 158, 11, 0.2);
-}
-
-.starting-price, .current-bid-amount {
-  font-size: 2.5rem;
-  font-weight: 900;
-  color: #059669;
-  margin-bottom: 8px;
-}
-
-/* Team grid */
-.team-grid-modern {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.team-cards-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 12px;
-}
-
-@media (max-width: 640px) {
-  .team-cards-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-.team-bid-card {
-  background: white;
-  border: 2px solid #e5e7eb;
-  border-radius: 16px;
-  padding: 16px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  text-align: left;
-  min-height: 120px;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-}
-
-.team-bid-card:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 25px -3px rgba(0, 0, 0, 0.1);
-  border-color: #f97316;
-}
-
-.team-bid-card.current-highest {
-  border-color: #f97316;
-  background: linear-gradient(135deg, #fff7ed 0%, #fed7aa 100%);
-  box-shadow: 0 0 20px rgba(249, 115, 22, 0.2);
-}
-
-.team-bid-card:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.team-name-large {
-  font-size: 1.1rem;
-  font-weight: 700;
-  color: #1f2937;
-}
-
-/* Control panel */
-.control-panel-modern {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  background: linear-gradient(135deg, #1f2937 0%, #374151 100%);
-  padding: 16px 24px;
-  box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.1);
-  z-index: 50;
-}
-
-.control-buttons-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: 12px;
-  max-width: 800px;
-  margin: 0 auto;
-}
-
-.control-button-modern {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  padding: 16px 12px;
-  border-radius: 12px;
-  border: none;
-  font-weight: 700;
-  font-size: 14px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  min-height: 80px;
-}
-
-.control-button-modern span {
-  font-size: 24px;
-}
-
-.control-button-modern:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.btn-sell {
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-  color: white;
-}
-
-.btn-sell:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(16, 185, 129, 0.3);
-}
-
-.btn-skip {
-  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-  color: white;
-}
-
-.btn-skip:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(245, 158, 11, 0.3);
-}
-
-.btn-reset {
-  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
-  color: white;
-}
-
-.btn-reset:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(99, 102, 241, 0.3);
-}
-
-.btn-danger {
-  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
-  color: white;
-}
-
-.btn-danger:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(220, 38, 38, 0.3);
-}
-
-/* Empty states */
-.empty-auction-state {
-  text-align: center;
-  padding: 60px 20px;
-  background: white;
-  border-radius: 20px;
-  margin: 0 auto;
-  max-width: 600px;
-}
-
-.empty-state-icon {
-  font-size: 4rem;
-  margin-bottom: 16px;
-}
-
-.empty-state-title {
-  font-size: 1.8rem;
-  font-weight: 700;
-  color: #374151;
-  margin-bottom: 12px;
-}
-
-.empty-state-description {
-  color: #6b7280;
-  font-size: 1rem;
-  max-width: 400px;
-  margin: 0 auto;
-}
-
-/* Team view header gradient */
-.header-gradient {
-  background: linear-gradient(135deg, #ec4899 0%, #f97316 100%);
-}
-
-/* Badges */
-.badge {
-  display: inline-block;
-  padding: 4px 8px;
-  border-radius: 6px;
-  font-size: 12px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.badge.pink {
-  background: #fce7f3;
-  color: #be185d;
-}
-
-.badge.orange {
-  background: #fed7aa;
-  color: #c2410c;
-}
-
-/* Observer stats */
-.observer-stats-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 12px;
-}
-
-.observer-stat-item {
-  text-align: center;
-  padding: 8px;
-}
-
-.stat-label {
-  font-size: 12px;
-  color: #6b7280;
-  margin-bottom: 4px;
-}
-
-.stat-value {
-  font-size: 16px;
-  font-weight: 700;
-}
-
-/* Progress bar */
-.progress-bar {
-  width: 100%;
-  height: 8px;
-  border-radius: 4px;
-  overflow: hidden;
-}
-
-/* Spin animation */
-.spin {
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
-/* Tables */
-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 14px;
-}
-
-table th {
-  background-color: #f9fafb;
-  padding: 12px;
-  text-align: left;
-  font-weight: 600;
-  color: #374151;
-  border-bottom: 1px solid #e5e7eb;
-}
-
-table td {
-  padding: 12px;
-  border-bottom: 1px solid #f3f4f6;
-  vertical-align: top;
-}
-
-table tr:hover {
-  background-color: #f9fafb;
-}
-
-/* All Players Table specific styles */
-.all-players-table {
-  margin-top: 20px;
-}
-
-.table-filters {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 16px;
-  align-items: end;
-  margin-bottom: 16px;
-  padding: 16px;
-  background: #f8fafc;
-  border-radius: 12px;
-}
-
-.filter-group {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.filter-group label {
-  font-size: 12px;
-  font-weight: 600;
-  color: #374151;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.filter-group select,
-.filter-group input {
-  padding: 8px 12px;
-  border: 1px solid #d1d5db;
-  border-radius: 8px;
-  font-size: 14px;
-  transition: border-color 0.2s;
-}
-
-.filter-group select:focus,
-.filter-group input:focus {
-  outline: none;
-  border-color: #f97316;
-  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.1);
-}
-
-.table-container {
-  background: white;
-  border-radius: 12px;
-  overflow: hidden;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-.table-container table {
-  margin: 0;
-}
-
-/* Player status styling in table */
-.player-status-current {
-  background-color: #dbeafe !important;
-  border-left: 4px solid #3b82f6;
-}
-
-.player-status-sold {
-  background-color: #dcfce7 !important;
-  color: #166534;
-}
-
-.player-status-available {
-  background-color: white;
-}
-
-/* Responsive table */
-@media (max-width: 768px) {
-  .table-container {
-    overflow-x: auto;
-  }
-  
-  .table-filters {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  
-  .filter-group {
-    width: 100%;
-  }
-}
-
-/* Tab Navigation */
-.tab-nav {
-  display: flex;
-  border-bottom: 2px solid #e5e7eb;
-  background: white;
-  border-radius: 12px 12px 0 0;
-}
-
-.tab-button {
-  padding: 12px 24px;
-  border: none;
-  background: transparent;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
-  border-bottom: 3px solid transparent;
-  color: #6b7280;
-}
-
-.tab-button.active {
-  color: #ec4899;
-  border-bottom-color: #ec4899;
-  background: #fdf2f8;
-}
-
-.tab-button:hover:not(.active) {
-  color: #374151;
-  background: #f9fafb;
-}
-
-.tab-content {
-  background: white;
-  padding: 24px;
-  border-radius: 0 0 12px 12px;
-}
-
-/* Mobile responsiveness improvements */
-@media (max-width: 640px) {
-  .main-compact-grid {
-    padding: 12px;
-    gap: 12px;
-  }
-  
-  .player-spotlight {
-    padding: 16px;
-  }
-  
-  .player-name-spotlight {
-    font-size: 1.5rem;
-  }
-  
-  .control-panel-modern {
-    padding: 12px 16px;
-  }
-  
-  .control-buttons-grid {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 8px;
-  }
-  
-  .control-button-modern {
-    padding: 12px 8px;
-    font-size: 12px;
-    min-height: 70px;
-  }
-  
-  .control-button-modern span {
-    font-size: 20px;
-  }
-  
-  .team-cards-grid {
-    gap: 8px;
-  }
-  
-  .team-bid-card {
-    padding: 12px;
-    min-height: 100px;
-  }
-}
-/* Animations & Transitions */
-.transition-all { transition-property: all; transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1); transition-duration: 150ms; }
-.transition-colors { transition-property: color, background-color, border-color; transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1); transition-duration: 150ms; }
-.spin { animation: spin 1s linear infinite; }
-@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-
-/* Modern Auctioneer-Specific Styles */
-
-/* Header - New Gradient Style */
-.header-gradient, .auctioneer-header-modern {
-  background: var(--gradient-accent);
-  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
-  padding: 1rem 1.5rem;
-}
-
-.main-compact-grid {
-  display: grid;
-  grid-template-columns: 1fr; /* Default to single column */
-  gap: 1rem;
-  padding: 1rem 0;
-}
-
 .player-spotlight {
   background: var(--color-background-start); /* Light peachy background */
   border-radius: 18px;
   box-shadow: 0 10px 30px rgba(0,0,0,0.08);
   padding: 1.5rem;
   border: 2px solid var(--color-accent-orange);
+  width: 100%; /* NEW: Explicitly constrain width to prevent overflow */
+  max-width: 100%; /* NEW: Enforce max-width to fit container */
+  overflow: hidden; /* NEW: Hide any potential internal overflow */
 }
 
 .player-image-spotlight {
@@ -925,6 +380,8 @@ table tr:hover {
   font-weight: 800;
   color: var(--color-text-primary);
   margin-bottom: 1rem;
+  white-space: normal; /* Allow wrapping if needed */
+  overflow-wrap: break-word;
 }
 
 .player-details-grid {
@@ -932,6 +389,7 @@ table tr:hover {
   grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
   gap: 0.75rem;
   margin-bottom: 1.5rem;
+  width: 100%; /* NEW: Full width within parent */
 }
 
 .player-detail-card {
@@ -962,30 +420,39 @@ table tr:hover {
   color: var(--color-text-primary);
 }
 
-/* Team Grid - Softer Look */
+/* Team grid */
 .team-grid-modern {
   background: white;
-  padding: 1.5rem;
+  padding: 2.5rem; /* INCREASED: More padding for spaciousness */
   border-radius: 18px;
   box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+  width: 100%; /* NEW: Explicitly constrain width */
+  max-width: 100%; /* NEW: Enforce max-width */
+  overflow: hidden; /* NEW: Handle any scrollable content safely */
+  margin: 2rem 0; /* INCREASED: Added vertical margin for separation */
 }
 
 .team-cards-grid {
-  display: flex;
-  gap: 1rem;
-  overflow-x: auto;
-  padding-bottom: 1rem; /* for scrollbar */
+  display: grid; /* NEW: Changed from flex to grid */
+  grid-template-columns: repeat(6, 1fr); /* NEW: Explicitly set 6 columns */
+  gap: 2rem; /* INCREASED: Larger gap for more space between cards */
+  padding-bottom: 0; /* Removed padding for scrollbar since no scroll needed */
 }
 
 .team-bid-card {
   background: #f9fafb;
   border: 2px solid var(--color-border);
   border-radius: 18px;
-  padding: 1rem;
+  padding: 0.5rem; /* INCREASED: More internal padding */
   transition: all 0.2s ease;
   cursor: pointer;
-  min-width: 240px;
+  min-width: 0; /* NEW: Allow shrinking to fit grid */
   flex-shrink: 0;
+  height: 10rem; /* INCREASED: Fixed height for consistency */
+  display: flex; /* NEW: Use flex to center content */
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
 }
 
 .team-bid-card:hover:not(:disabled) {
@@ -1006,12 +473,13 @@ table tr:hover {
 }
 
 .team-name-large {
-  font-size: 1.25rem;
+  font-size: 1.5rem; /* INCREASED: Larger text for readability */
   font-weight: 700;
   color: var(--color-text-primary);
+  margin-bottom: 0.5rem; /* Added spacing below name */
 }
 
-/* Control Panel */
+/* Control panel */
 .control-panel-modern {
   position: fixed;
   bottom: 0;
@@ -1027,37 +495,44 @@ table tr:hover {
 .control-buttons-grid {
   display: flex;
   justify-content: center;
-  gap: 1rem;
+  gap: 1.5rem; /* INCREASED: More space between buttons */
   max-width: 60rem;
   margin: 0 auto;
 }
 
 .control-button-modern {
-  padding: 0.75rem 1.5rem;
+  padding: 1rem 2rem; /* INCREASED: Larger button padding */
   border-radius: 9999px;
-  border: none;
-  font-size: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  font-size: 1.25rem; /* INCREASED: Larger text */
   font-weight: 700;
   color: white;
   cursor: pointer;
-  transition: all 0.2s ease;
-  min-width: 8rem;
+  transition: all 0.2s ease-in-out;
+  min-width: 10rem; /* INCREASED: Wider buttons */
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
+  gap: 1rem; /* INCREASED: More space between icon and text */
+  text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1), inset 0 1px 1px rgba(255, 255, 255, 0.2);
 }
 
 .control-button-modern:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+  transform: translateY(-3px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15), inset 0 1px 1px rgba(255, 255, 255, 0.2);
 }
 
-.control-button-modern:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+.control-button-modern:disabled { 
+  opacity: 0.6; 
+  cursor: not-allowed; 
+  transform: none; 
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1), inset 0 1px 1px rgba(255, 255, 255, 0.2);
+}
 .btn-sell { background: var(--gradient-success); }
 .btn-skip { background: var(--gradient-accent); }
-.btn-reset { background-color: #4b5563; } /* Gray for less common action */
-.btn-danger { background-color: var(--color-error); }
+.btn-undo { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); } /* New Undo button style */
+.btn-danger { background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%); }
 
 /* Progress Bar */
 .progress-container-modern, .progress-bar {
@@ -1115,7 +590,7 @@ tr:hover { background-color: #f9fafb; }
 .badge.pink { background-color: #fce7f3; color: #9d174d; }
 .badge.orange { background-color: #ffedd5; color: #9a3412; }
 
-/* --- OBSERVER VIEW STYLES (NEW) --- */
+/* Observer stats */
 .observer-stats-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -1141,12 +616,11 @@ tr:hover { background-color: #f9fafb; }
 
 /* Responsive */
 @media (min-width: 768px) {
-  .main-compact-grid { 
-    grid-template-columns: 1fr;
-  }
   .player-spotlight .flex {
     flex-direction: row;
     align-items: flex-start;
+    flex-wrap: wrap; /* NEW: Allow wrapping on small screens */
+    gap: 1rem; /* Adjusted for better spacing */
   }
   .player-spotlight .flex-1.min-w-0.text-center.md\:text-left {
     text-align: left;
@@ -1154,13 +628,59 @@ tr:hover { background-color: #f9fafb; }
 }
 
 @media (max-width: 768px) {
-  .player-spotlight { padding: 1rem; }
-  .team-grid-modern { padding: 1rem; }
-  .player-name-spotlight { font-size: 1.75rem; }
+  .main-compact-grid {
+    padding: 1rem; /* Adjust padding for mobile */
+  }
+  .player-spotlight { 
+    padding: 1rem; /* Reduced padding */
+    width: 100%; /* Ensure full width */
+  }
+  .team-grid-modern { 
+    padding: 1rem; 
+    width: 100%; /* Ensure full width */
+  }
+  .player-name-spotlight { 
+    font-size: 1.75rem; 
+    white-space: normal; /* Allow wrapping if needed */
+    overflow-wrap: break-word;
+  }
   .control-buttons-grid { flex-wrap: wrap; gap: 0.5rem; }
   .control-button-modern { min-width: 120px; flex-grow: 1; }
   .player-image-spotlight {
     width: 8rem;
     height: 8rem;
+    flex-shrink: 0; /* Prevent image from shrinking too much */
   }
+  .player-details-grid {
+    grid-template-columns: 1fr;
+    gap: 0.75rem; /* Consistent with desktop */
+    min-width: 0; /* Allow shrinking */
+  }
+  .team-cards-grid {
+    grid-template-columns: repeat(3, 1fr); /* NEW: Adjust to 3 columns on mobile */
+  }
+}
+
+/* Animations & Transitions */
+.transition-all { transition-property: all; transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1); transition-duration: 150ms; }
+.transition-colors { transition-property: color, background-color, border-color; transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1); transition-duration: 150ms; }
+.spin { animation: spin 1s linear infinite; }
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+/* Modern Auctioneer-Specific Styles */
+
+/* Header - New Gradient Style */
+.header-gradient, .auctioneer-header-modern {
+  background: var(--gradient-accent);
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+  padding: 1rem 1.5rem;
+}
+
+/* --- MODIFICATION: Centering the Main Grid --- */
+.main-compact-grid {
+  display: grid;
+  grid-template-columns: 1fr; /* Ensures a single, centered column for content */
+  gap: 1rem; /* INCREASED: More spacing between sections */
+  max-width: 72rem; /* INCREASED: Wider content area */
+  margin: 0 auto; /* Horizontally centers the grid */
 }

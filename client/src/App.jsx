@@ -47,7 +47,7 @@ function getRoute() {
   if (p.startsWith('/auctioneer')) return { name: 'auctioneer' };
   if (p.startsWith('/team/')) {
     const id = parseInt(p.split('/team/')[1], 10);
-    return { name: 'team', teamId: Number.isFinite(id) && id >= 1 && id <= 6 ? id : 1 };
+    return { name: 'team', teamId: Number.isFinite(id) && id >= 1 && id <= 8 ? id : 1 };
   }
   if (p.startsWith('/observer')) return { name: 'observer' };
   return { name: 'landing' };
@@ -143,19 +143,19 @@ function AllPlayersTable({ allPlayers, currentPlayer, teams }) {
 
   const getStatusDisplay = (player) => {
     if (currentPlayer && player.sNo === currentPlayer.sNo) {
-      return <span className="badge bg-blue-500 text-white">Current</span>;
+      return <span className="badge bg-orange-500 text-white ">Current</span>;
     }
     if (player.status === 'sold') {
       const team = teams.find(t => t.id === player.soldToTeam);
       return (
         <div>
-          <span className="badge bg-green-500 text-white">Sold</span>
+          <span className="badge bg-green-500 ">Sold</span>
           {team && <div className="text-xs text-green-700 mt-1">{team.name}</div>}
           <div className="text-xs text-green-600">{fmtL(player.soldPrice)}</div>
         </div>
       );
     }
-    return <span className="badge bg-gray-400 text-white">Available</span>;
+    return <span className="badge bg-gray-400 text-gray-600">Available</span>;
   };
 
   return (
@@ -315,7 +315,7 @@ function AppContent() {
       return;
     }
 
-    if (!Number.isInteger(selectedTeamId) || selectedTeamId < 1 || selectedTeamId > 6) {
+    if (!Number.isInteger(selectedTeamId) || selectedTeamId < 1 || selectedTeamId > 8) {
       addNotification('Invalid team selection', 'error');
       return;
     }
@@ -376,15 +376,30 @@ function AppContent() {
     });
   }, [state.currentPlayer, isConnected, isLoading, isAuctioneerView]);
 
-  const resetBid = useCallback(() => {
+  // NEW: Undo action instead of reset bid
+  const undoLastAction = useCallback(() => {
     if (!socketRef.current || !isConnected || isLoading || !isAuctioneerView) {
       return;
     }
+    confirmAlert({
+      title: 'Confirm Undo',
+      message: 'This will attempt to revert the last major action (e.g., a bid, sale, or skip). Are you sure?',
+      buttons: [
+        {
+          label: 'Yes, Undo',
+          onClick: () => {
+            setIsLoading(true);
+            // NOTE: This requires a corresponding 'undoLastAction' event handler on the server.
+            socketRef.current.emit('undoLastAction');
+            addNotification('Undo request sent to server.', 'info');
+            setTimeout(() => setIsLoading(false), 3000);
+          },
+        },
+        { label: 'Cancel', onClick: () => {} },
+      ],
+    });
+  }, [isConnected, isLoading, isAuctioneerView, addNotification]);
 
-    setIsLoading(true);
-    socketRef.current.emit('resetBid');
-    setTimeout(() => setIsLoading(false), 1500);
-  }, [isConnected, isLoading, isAuctioneerView]);
 
   const resetAuction = useCallback(() => {
     if (!socketRef.current || !isConnected || isLoading || !isAuctioneerView) {
@@ -697,7 +712,7 @@ function AppContent() {
           )}
         </div>
         <div className="text-gray-600">
-          Teams Online: {state.connectedTeams.length}/6
+          Teams Online: {state.connectedTeams.length}/8
           {state.connectedTeams.length > 0 && ` (${state.connectedTeams.join(', ')})`}
         </div>
       </div>
@@ -902,25 +917,6 @@ function AppContent() {
               </p>
             </div>
           )}
-
-          {/* ALL PLAYERS TABLE FOR AUCTIONEER */}
-          {state.allPlayers.length > 0 && (
-            <div className="mt-8">
-              <div className="card bg-white">
-                <div className="bg-gray-50 p-4 border-b rounded-t-2xl">
-                  <h2 className="text-xl font-bold text-gray-800">All Players Overview</h2>
-                  <p className="text-sm text-gray-600 mt-1">Track the status of all players in the auction</p>
-                </div>
-                <div className="p-6">
-                  <AllPlayersTable 
-                    allPlayers={state.allPlayers} 
-                    currentPlayer={state.currentPlayer}
-                    teams={state.teams}
-                  />
-                </div>
-              </div>
-            </div>
-          )}
         </main>
 
         {/* COMPACT CONTROL PANEL */}
@@ -945,12 +941,12 @@ function AppContent() {
             </button>
             
             <button
-              onClick={resetBid}
-              disabled={isLoading || !isConnected || !state.currentPlayer}
-              className="control-button-modern btn-reset"
+              onClick={undoLastAction}
+              disabled={isLoading || !isConnected}
+              className="control-button-modern btn-undo"
             >
-              <span>🔄</span>
-              {isLoading ? 'PROCESSING...' : 'RESET'}
+              <span>↩️</span>
+              {isLoading ? 'PROCESSING...' : 'UNDO'}
             </button>
             
             {/* Only show RESET AUCTION after 48 players have been processed */}
@@ -1457,7 +1453,7 @@ function AppContent() {
           </button>
 
           <div className="grid grid-cols-2 gap-2">
-            {[1, 2, 3, 4, 5, 6].map(teamNum => (
+            {[1, 2, 3, 4, 5, 6, 7, 8].map(teamNum => (
               <button
                 key={teamNum}
                 onClick={() => (window.location.href = `/team/${teamNum}`)}
