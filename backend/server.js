@@ -31,7 +31,7 @@ let reAuctionUnsold = [];
 let auctioneerConnected = false;
 let connectedTeams = new Set();
 
-let teams = Array.from({ length: 6 }, (_, i) => ({
+let teams = Array.from({ length: 8 }, (_, i) => ({
   id: i + 1,
   name: `Team ${i + 1}`,
   budget: 450000000, // 45 Cr
@@ -70,7 +70,7 @@ const synergyRules = {
 
 // Validation helpers
 function isValidTeamId(teamId) {
-  return Number.isInteger(teamId) && teamId >= 1 && teamId <= 6;
+  return Number.isInteger(teamId) && teamId >= 1 && teamId <= 8;
 }
 
 function sanitizeString(str) {
@@ -389,7 +389,7 @@ async function resetAuction() {
     connectedTeams = new Set();
 
     // Reset teams
-    teams = Array.from({ length: 6 }, (_, i) => ({
+    teams = Array.from({ length: 8 }, (_, i) => ({
       id: i + 1,
       name: `Team ${i + 1}`,
       budget: 450000000,
