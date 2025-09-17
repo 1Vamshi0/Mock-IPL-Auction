@@ -42,32 +42,73 @@ body {
   border: 1px solid var(--color-border);
 }
 
-/* Generic Button Styles */
-.btn-primary, .btn-secondary, .btn-success, .btn-danger, .btn-danger-solid {
+/* 3D Button Base Styles - From Uiverse.io by adamgiebl */
+.btn-primary, .btn-secondary, .btn-success, .btn-danger, .btn-danger-solid, .control-button-modern {
+  /* Variables */
+  --button_radius: 0.75em;
+  --button_color: #e8e8e8;
+  --button_outline_color: #000000;
+  font-size: 17px;
+  font-weight: bold;
+  border: none;
+  border-radius: var(--button_radius);
+  background: var(--button_outline_color);
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0.75rem 1rem;
-  border-radius: 9999px; /* rounded-full */
-  font-weight: 700;
-  border: none;
   cursor: pointer;
+  text-align: center;
+  padding: 0; /* Remove padding from outer button */
+  position: relative;
   transition: all 0.2s ease;
+}
+
+.btn-primary .button_top, .btn-secondary .button_top, .btn-success .button_top, .btn-danger .button_top, .btn-danger-solid .button_top, .control-button-modern .button_top {
+  display: block;
+  box-sizing: border-box;
+  border: 2px solid var(--button_outline_color);
+  border-radius: var(--button_radius);
+  padding: 0.75em 1.5em;
+  color: var(--button_outline_color);
+  transform: translateY(-0.2em);
+  transition: transform 0.1s ease;
+  width: 100%;
   text-align: center;
 }
 
-.btn-primary:hover, .btn-secondary:hover, .btn-success:hover, .btn-danger:hover, .btn-danger-solid:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+.btn-primary:hover .button_top, .btn-secondary:hover .button_top, .btn-success:hover .button_top, .btn-danger:hover .button_top, .btn-danger-solid:hover .button_top, .control-button-modern:hover .button_top {
+  /* Pull the button upwards when hovered */
+  transform: translateY(-0.33em);
 }
 
+.btn-primary:active .button_top, .btn-secondary:active .button_top, .btn-success:active .button_top, .btn-danger:active .button_top, .btn-danger-solid:active .button_top, .control-button-modern:active .button_top {
+  /* Push the button downwards when pressed */
+  transform: translateY(0);
+}
+
+.btn-primary:disabled .button_top, .btn-secondary:disabled .button_top, .btn-success:disabled .button_top, .btn-danger:disabled .button_top, .btn-danger-solid:disabled .button_top, .control-button-modern:disabled .button_top {
+  transform: translateY(-0.1em);
+  opacity: 0.6;
+}
+
+/* Button Type-Specific Gradients */
 .btn-primary {
   background: var(--gradient-accent);
   color: white;
 }
 
+.btn-primary .button_top {
+  background: linear-gradient(135deg, #ec4899 0%, #f97316 100%);
+  color: white;
+}
+
 .btn-success {
   background: var(--gradient-success);
+  color: white;
+}
+
+.btn-success .button_top {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
   color: white;
 }
 
@@ -78,8 +119,18 @@ body {
   border: 1.8px solid var(--color-border);
 }
 
+.btn-secondary .button_top {
+  background-color: #6b7280;
+  color: white;
+}
+
 .btn-danger-solid {
   background-color: var(--color-error);
+  color: white;
+}
+
+.btn-danger-solid .button_top {
+  background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%);
   color: white;
 }
 
@@ -137,7 +188,7 @@ body {
 .grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .grid-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-.grid-cols-6 { grid-template-columns: repeat(6, minmax(0, 1fr)); } /* NEW: Added for 6 teams */
+.grid-cols-6 { grid-template-columns: repeat(6, minmax(0, 1fr)); }
 
 /* Typography */
 .text-xs { font-size: 0.75rem; line-height: 1rem; }
@@ -158,7 +209,7 @@ body {
 .border { border: 1px solid var(--color-border); }
 .rounded { border-radius: 0.25rem; }
 .rounded-lg { border-radius: 0.5rem; }
-.rounded-2xl { border-radius: 18px; } /* Updated */
+.rounded-2xl { border-radius: 18px; }
 .rounded-full { border-radius: 9999px; }
 
 /* Colors - Background */
@@ -252,7 +303,7 @@ body {
   transform: translateY(-2px);
 }
 
-/* Buttons */
+/* Buttons (Legacy Support) */
 .btn-primary {
   background: linear-gradient(135deg, #ec4899 0%, #f97316 100%);
   color: white;
@@ -357,14 +408,15 @@ body {
 
 /* Player spotlight */
 .player-spotlight {
-  background: var(--color-background-start); /* Light peachy background */
+  background: var(--color-background-start);
   border-radius: 18px;
   box-shadow: 0 10px 30px rgba(0,0,0,0.08);
   padding: 1.5rem;
   border: 2px solid var(--color-accent-orange);
-  width: 100%; /* NEW: Explicitly constrain width to prevent overflow */
-  max-width: 100%; /* NEW: Enforce max-width to fit container */
-  overflow: hidden; /* NEW: Hide any potential internal overflow */
+  width: 100%;
+  max-width: 78rem; /* INCREASED: From 100% max-width to 48rem for wider card */
+  overflow: hidden;
+  margin: 0 auto; /* Center the card horizontally */
 }
 
 .player-image-spotlight {
@@ -380,7 +432,7 @@ body {
   font-weight: 800;
   color: var(--color-text-primary);
   margin-bottom: 1rem;
-  white-space: normal; /* Allow wrapping if needed */
+  white-space: normal;
   overflow-wrap: break-word;
 }
 
@@ -389,11 +441,11 @@ body {
   grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
   gap: 0.75rem;
   margin-bottom: 1.5rem;
-  width: 100%; /* NEW: Full width within parent */
+  width: 100%;
 }
 
 .player-detail-card {
-  background: #fdfdff; /* Slightly brighter than default white */
+  background: #fdfdff;
   padding: 0.75rem;
   border-radius: 12px;
   text-align: center;
@@ -423,41 +475,46 @@ body {
 /* Team grid */
 .team-grid-modern {
   background: white;
-  padding: 2.5rem; /* INCREASED: More padding for spaciousness */
+  padding: 2.5rem;
   border-radius: 18px;
   box-shadow: 0 10px 30px rgba(0,0,0,0.08);
-  width: 100%; /* NEW: Explicitly constrain width */
-  max-width: 100%; /* NEW: Enforce max-width */
-  overflow: hidden; /* NEW: Handle any scrollable content safely */
-  margin: 2rem 0; /* INCREASED: Added vertical margin for separation */
+  width: 100%;
+  max-width: 120rem; /* INCREASED: From 100% max-width to 80rem for wider grid */
+  overflow: hidden;
+  margin: 2rem auto; /* Center the grid horizontally */
 }
 
 .team-cards-grid {
-  display: grid; /* NEW: Changed from flex to grid */
-  grid-template-columns: repeat(6, 1fr); /* NEW: Explicitly set 6 columns */
-  gap: 2rem; /* INCREASED: Larger gap for more space between cards */
-  padding-bottom: 0; /* Removed padding for scrollbar since no scroll needed */
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 1rem;
+  padding-bottom: 0;
+  justify-items: center;
 }
 
 .team-bid-card {
   background: #f9fafb;
   border: 2px solid var(--color-border);
   border-radius: 18px;
-  padding: 0.5rem; /* INCREASED: More internal padding */
+  padding: 0.25rem;
   transition: all 0.2s ease;
   cursor: pointer;
-  min-width: 0; /* NEW: Allow shrinking to fit grid */
+  min-width: 0;
   flex-shrink: 0;
-  height: 10rem; /* INCREASED: Fixed height for consistency */
-  display: flex; /* NEW: Use flex to center content */
+  height: 10rem;
+  display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: space-evenly;
   align-items: center;
+  position: relative;
+  width: 100%;
+  max-width: 120px;
 }
 
 .team-bid-card:hover:not(:disabled) {
   transform: translateY(-4px);
   border-color: var(--color-accent-orange);
+  box-shadow: 0 8px 25px rgba(255, 107, 53, 0.15);
 }
 
 .team-bid-card.current-highest {
@@ -473,10 +530,44 @@ body {
 }
 
 .team-name-large {
-  font-size: 1.5rem; /* INCREASED: Larger text for readability */
+  font-size: 1.125rem;
   font-weight: 700;
   color: var(--color-text-primary);
-  margin-bottom: 0.5rem; /* Added spacing below name */
+  margin-bottom: 0.75rem;
+  text-align: center;
+  line-height: 1.2;
+}
+
+.team-budget-text {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #059669;
+  margin-bottom: 0.5rem;
+  text-align: center;
+}
+
+.team-next-bid-text {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #ea580c;
+  text-align: center;
+}
+
+.team-highest-badge {
+  position: absolute;
+  top: -0.5rem;
+  right: -0.5rem;
+  background: #10b981;
+  color: white;
+  border-radius: 50%;
+  width: 2rem;
+  height: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: bold;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
 }
 
 /* Control panel */
@@ -495,25 +586,25 @@ body {
 .control-buttons-grid {
   display: flex;
   justify-content: center;
-  gap: 1.5rem; /* INCREASED: More space between buttons */
+  gap: 1.5rem;
   max-width: 60rem;
   margin: 0 auto;
 }
 
 .control-button-modern {
-  padding: 1rem 2rem; /* INCREASED: Larger button padding */
+  padding: 1rem 2rem;
   border-radius: 9999px;
   border: 1px solid rgba(255, 255, 255, 0.4);
-  font-size: 1.25rem; /* INCREASED: Larger text */
+  font-size: 1.25rem;
   font-weight: 700;
   color: white;
   cursor: pointer;
   transition: all 0.2s ease-in-out;
-  min-width: 10rem; /* INCREASED: Wider buttons */
+  min-width: 10rem;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 1rem; /* INCREASED: More space between icon and text */
+  gap: 1rem;
   text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1), inset 0 1px 1px rgba(255, 255, 255, 0.2);
 }
@@ -529,10 +620,20 @@ body {
   transform: none; 
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1), inset 0 1px 1px rgba(255, 255, 255, 0.2);
 }
+
 .btn-sell { background: var(--gradient-success); }
 .btn-skip { background: var(--gradient-accent); }
-.btn-undo { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); } /* New Undo button style */
+.btn-undo { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); }
 .btn-danger { background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%); }
+
+.all-players-button{
+  border: #000c08;
+  box-sizing: border-box;
+  border-radius: 10px;
+  background: rgb(236, 146, 146);
+  color: #000000;
+  gap: 0.5rem;
+}
 
 /* Progress Bar */
 .progress-container-modern, .progress-bar {
@@ -619,8 +720,8 @@ tr:hover { background-color: #f9fafb; }
   .player-spotlight .flex {
     flex-direction: row;
     align-items: flex-start;
-    flex-wrap: wrap; /* NEW: Allow wrapping on small screens */
-    gap: 1rem; /* Adjusted for better spacing */
+    flex-wrap: wrap;
+    gap: 1rem;
   }
   .player-spotlight .flex-1.min-w-0.text-center.md\:text-left {
     text-align: left;
@@ -629,19 +730,19 @@ tr:hover { background-color: #f9fafb; }
 
 @media (max-width: 768px) {
   .main-compact-grid {
-    padding: 1rem; /* Adjust padding for mobile */
+    padding: 1rem;
   }
   .player-spotlight { 
-    padding: 1rem; /* Reduced padding */
-    width: 100%; /* Ensure full width */
+    padding: 1rem;
+    max-width: 100%; /* Reset to full width on mobile */
   }
   .team-grid-modern { 
-    padding: 1rem; 
-    width: 100%; /* Ensure full width */
+    padding: 1.5rem;
+    max-width: 100%; /* Reset to full width on mobile */
   }
   .player-name-spotlight { 
-    font-size: 1.75rem; 
-    white-space: normal; /* Allow wrapping if needed */
+    font-size: 1.75rem;
+    white-space: normal;
     overflow-wrap: break-word;
   }
   .control-buttons-grid { flex-wrap: wrap; gap: 0.5rem; }
@@ -649,15 +750,16 @@ tr:hover { background-color: #f9fafb; }
   .player-image-spotlight {
     width: 8rem;
     height: 8rem;
-    flex-shrink: 0; /* Prevent image from shrinking too much */
+    flex-shrink: 0;
   }
   .player-details-grid {
     grid-template-columns: 1fr;
-    gap: 0.75rem; /* Consistent with desktop */
-    min-width: 0; /* Allow shrinking */
+    gap: 0.75rem;
+    min-width: 0;
   }
   .team-cards-grid {
-    grid-template-columns: repeat(3, 1fr); /* NEW: Adjust to 3 columns on mobile */
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
   }
 }
 
@@ -675,12 +777,48 @@ tr:hover { background-color: #f9fafb; }
   box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
   padding: 1rem 1.5rem;
 }
+/* =============================================== */
+/* Tab Navigation Component                        */
+/* =============================================== */
+
+.tab-navigation__bar {
+  display: flex;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.tab-navigation__button {
+  /* Reset default button styles */
+  background: none;
+  border: none;
+  cursor: pointer;
+  
+  /* Styling */
+  padding: 0.75rem 1.5rem; /* 12px 24px */
+  font-size: 1rem; /* 16px */
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  border-bottom: 3px solid transparent;
+  
+  /* Positioning & Animation */
+  transform: translateY(1px); /* Aligns with the container's bottom border */
+  transition: all 0.2s ease-in-out;
+}
+
+.tab-navigation__button:hover {
+  color: var(--color-accent-pink);
+  background-color: rgba(236, 72, 153, 0.05); /* A very light pink */
+}
+
+.tab-navigation__button--active {
+  color: var(--color-accent-pink);
+  border-bottom-color: var(--color-accent-pink);
+}
 
 /* --- MODIFICATION: Centering the Main Grid --- */
 .main-compact-grid {
   display: grid;
-  grid-template-columns: 1fr; /* Ensures a single, centered column for content */
-  gap: 1rem; /* INCREASED: More spacing between sections */
-  max-width: 72rem; /* INCREASED: Wider content area */
-  margin: 0 auto; /* Horizontally centers the grid */
+  grid-template-columns: 1fr;
+  gap: 1rem;
+  max-width: 72rem;
+  margin: 0 auto;
 }

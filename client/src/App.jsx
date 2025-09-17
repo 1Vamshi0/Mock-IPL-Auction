@@ -4,6 +4,112 @@ import { confirmAlert } from "react-confirm-alert";
 import "react-confirm-alert/src/react-confirm-alert.css";
 import './App.css';
 
+// =================================================================
+// Reusable Tabs Component
+// =================================================================
+function Tabs({ tabs }) {
+  const [activeTabIndex, setActiveTabIndex] = useState(0);
+
+  if (!tabs || tabs.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="card bg-white mb-6">
+      <div className="tab-navigation__bar">
+        {tabs.map((tab, index) => (
+          <button
+            key={index}
+            onClick={() => setActiveTabIndex(index)}
+            className={`tab-navigation__button ${
+              activeTabIndex === index ? 'tab-navigation__button--active' : ''
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+      <div className="p-6">
+        {tabs[activeTabIndex].content}
+      </div>
+    </div>
+  );
+}
+
+// =================================================================
+// Synergy Calculation Helpers (matching server logic)
+// =================================================================
+const synergyRules = {
+  positive: {
+    'AO-AN': 20,
+    'BA-FI': 15,
+    'AN-WK': 15,
+    'BA-BO': 20,
+    'PA-SP': 25,
+    'PA-PA': 10,
+    'CS-PA': 20,
+    'CS-SP': 15,
+    'BA-CS': 10,
+    'BO-CS': 10,
+  },
+  negative: {
+    'AO-AO': -15,
+    'FI-FI': -10,
+    'SP-SP': -5,
+    'BA-BA': -5,
+    'WK-WK': -10,
+    'CS-CS': -10,
+    'BO-BO': -5,
+  },
+};
+
+function sanitizeString(str) {
+  return str ? str.toString().trim() : '';
+}
+
+function calculateSynergy(roster) {
+  if (!Array.isArray(roster) || roster.length === 0) return 0;
+  
+  let baseTotal = 0;
+  let positive = 0;
+  let negative = 0;
+
+  // Calculate base total safely
+  for (const player of roster) {
+    if (player && typeof player.baseScore === 'number') {
+      baseTotal += player.baseScore;
+    }
+  }
+
+  // Calculate synergy bonuses/penalties
+  for (let i = 0; i < roster.length; i++) {
+    for (let j = i + 1; j < roster.length; j++) {
+      const player1 = roster[i];
+      const player2 = roster[j];
+      
+      if (!player1?.archetype || !player2?.archetype) continue;
+      
+      let arch1 = sanitizeString(player1.archetype);
+      let arch2 = sanitizeString(player2.archetype);
+      
+      if (!arch1 || !arch2) continue;
+      
+      // Ensure consistent ordering for lookup
+      if (arch1 > arch2) [arch1, arch2] = [arch2, arch1];
+      const key = `${arch1}-${arch2}`;
+      
+      positive += synergyRules.positive[key] || 0;
+      negative += synergyRules.negative[key] || 0;
+    }
+  }
+  
+  return baseTotal + positive + negative;
+}
+
+// =================================================================
+// Original App Components (updated for compatibility)
+// =================================================================
+
 // Error Boundary Component
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -27,11 +133,11 @@ class ErrorBoundary extends React.Component {
             <h2 className="text-xl font-bold mb-2">Application Error</h2>
             <p className="mb-4">Something went wrong. Please refresh the page.</p>
             <button
-              onClick={() => window.location.reload()}
-              className="btn-danger-solid"
-            >
-              Refresh Page
-            </button>
+          onClick={() => window.location.reload()}
+          className="btn-danger-solid"
+        >
+          <span className="button_top">Refresh Page</span>
+        </button>
           </div>
         </div>
       );
@@ -56,10 +162,15 @@ function getRoute() {
 // Mirror the server's increment rule
 function computeNextIncrement(currentBidOrBase) {
   const bid = currentBidOrBase || 0;
-  if (bid < 5000000) return 500000;    // +5L
+  if (bid < 5000000) return 500000;    // +50L
   if (bid < 10000000) return 1000000;  // +1Cr
   if (bid < 20000000) return 2000000;  // +2Cr
   return 5000000;                      // +5Cr
+}
+
+// Validation helper matching server logic
+function isValidTeamId(teamId) {
+  return Number.isInteger(teamId) && teamId >= 1 && teamId <= 8;
 }
 
 // Format helpers
@@ -161,7 +272,7 @@ function AllPlayersTable({ allPlayers, currentPlayer, teams }) {
   return (
     <div className="space-y-4">
       {/* Filters */}
-      <div className="flex flex-wrap gap-4 items-center">
+      <div className="flex flex-wrap gap-4 mb-6 items-center">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Filter by Role</label>
           <select
@@ -289,13 +400,12 @@ function AppContent() {
     connectedTeams: [],
     auctioneerConnected: false,
     nextIncrement: 0,
-    allPlayers: [] // New: all players with status
+    allPlayers: [] 
   });
 
   const [isConnected, setIsConnected] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [notifications, addNotification] = useNotifications();
-  const [activeTeamTab, setActiveTeamTab] = useState('roster'); // New: tab state for team view
   const socketRef = useRef(null);
   const reconnectAttempts = useRef(0);
   const maxReconnectAttempts = 5;
@@ -309,14 +419,63 @@ function AppContent() {
     timeout: 10000
   }), []);
 
-  // Auctioneer actions with better error handling
+  // Enhanced bid validation matching server logic
+  const validateBid = useCallback((teamId, newBid) => {
+    if (!isValidTeamId(teamId)) {
+      return { valid: false, reason: 'Invalid team ID' };
+    }
+    
+    const team = state.teams[teamId - 1];
+    const player = state.currentPlayer;
+    
+    if (!player) {
+      return { valid: false, reason: 'No player available' };
+    }
+    
+    if (!team) {
+      return { valid: false, reason: 'Team not found' };
+    }
+    
+    if (team.players.length >= 8) {
+      return { valid: false, reason: 'Team roster is full (8 players)' };
+    }
+    
+    if (team.remaining < newBid) {
+      return { valid: false, reason: 'Insufficient team budget' };
+    }
+    
+    if (newBid <= 0) {
+      return { valid: false, reason: 'Bid must be positive' };
+    }
+    
+    return { valid: true };
+  }, [state.teams, state.currentPlayer]);
+
+  // Auctioneer actions with enhanced error handling
   const placeBidForTeam = useCallback((selectedTeamId) => {
     if (!socketRef.current || !isConnected || isLoading || !isAuctioneerView) {
       return;
     }
 
-    if (!Number.isInteger(selectedTeamId) || selectedTeamId < 1 || selectedTeamId > 8) {
+    if (!isValidTeamId(selectedTeamId)) {
       addNotification('Invalid team selection', 'error');
+      return;
+    }
+
+    const player = state.currentPlayer;
+    if (!player) {
+      addNotification('No player available for bidding', 'error');
+      return;
+    }
+
+    const newBid = state.currentBid === 0 
+      ? player.basePrice 
+      : state.currentBid + computeNextIncrement(state.currentBid);
+    
+    const validation = validateBid(selectedTeamId, newBid);
+    
+    if (!validation.valid) {
+      addNotification(`Cannot place bid for Team ${selectedTeamId}: ${validation.reason}`, 'error');
       return;
     }
 
@@ -324,44 +483,66 @@ function AppContent() {
     socketRef.current.emit('placeBidForTeam', selectedTeamId);
     
     setTimeout(() => setIsLoading(false), 3000);
-  }, [isConnected, isLoading, isAuctioneerView, addNotification]);
+  }, [isConnected, isLoading, isAuctioneerView, addNotification, state.currentPlayer, state.currentBid, validateBid]);
 
   const soldPlayer = useCallback(() => {
     if (!socketRef.current || !isConnected || isLoading || !isAuctioneerView) {
       return;
     }
 
+    if (!state.currentBidTeam || state.currentBid === 0) {
+      addNotification('No valid bid to complete sale', 'error');
+      return;
+    }
+
+    if (!isValidTeamId(state.currentBidTeam)) {
+      addNotification('Invalid bidding team', 'error');
+      return;
+    }
+
+    const team = state.teams[state.currentBidTeam - 1];
+    const player = state.currentPlayer;
+
+    if (!team || !player) {
+      addNotification('Invalid player or team', 'error');
+      return;
+    }
+
+    if (team.remaining < state.currentBid) {
+      addNotification('Team has insufficient budget', 'error');
+      return;
+    }
+
     confirmAlert({
       title: 'Confirm Sale',
-      message: state.currentPlayer && state.currentBidTeam
-        ? `Sell ${state.currentPlayer.name} to Team ${state.currentBidTeam} for ${fmtL(state.currentBid)}?`
-        : 'No valid bid to complete sale',
+      message: `Sell ${player.name} to ${team.name} for ${fmtL(state.currentBid)}?`,
       buttons: [
         {
           label: 'Yes, Sell',
           onClick: () => {
-            if (state.currentPlayer && state.currentBidTeam) {
-              setIsLoading(true);
-              socketRef.current.emit('soldPlayer');
-              setTimeout(() => setIsLoading(false), 3000);
-            }
+            setIsLoading(true);
+            socketRef.current.emit('soldPlayer');
+            setTimeout(() => setIsLoading(false), 3000);
           },
         },
         { label: 'Cancel', onClick: () => {} },
       ],
     });
-  }, [state.currentPlayer, state.currentBidTeam, state.currentBid, isConnected, isLoading, isAuctioneerView]);
+  }, [state.currentPlayer, state.currentBidTeam, state.currentBid, state.teams, isConnected, isLoading, isAuctioneerView, addNotification]);
 
   const skipPlayer = useCallback(() => {
     if (!socketRef.current || !isConnected || isLoading || !isAuctioneerView) {
       return;
     }
 
+    if (!state.currentPlayer) {
+      addNotification('No player available to skip', 'error');
+      return;
+    }
+
     confirmAlert({
       title: 'Confirm Skip',
-      message: state.currentPlayer
-        ? `Skip ${state.currentPlayer.name}? This player will go to re-auction.`
-        : 'No player available to skip.',
+      message: `Skip ${state.currentPlayer.name}? This player will go to re-auction.`,
       buttons: [
         {
           label: 'Yes, Skip',
@@ -374,32 +555,44 @@ function AppContent() {
         { label: 'Cancel', onClick: () => {} },
       ],
     });
-  }, [state.currentPlayer, isConnected, isLoading, isAuctioneerView]);
+  }, [state.currentPlayer, isConnected, isLoading, isAuctioneerView, addNotification]);
 
-  // NEW: Undo action instead of reset bid
-  const undoLastAction = useCallback(() => {
+  const resetBid = useCallback(() => {
     if (!socketRef.current || !isConnected || isLoading || !isAuctioneerView) {
       return;
     }
-    confirmAlert({
-      title: 'Confirm Undo',
-      message: 'This will attempt to revert the last major action (e.g., a bid, sale, or skip). Are you sure?',
-      buttons: [
-        {
-          label: 'Yes, Undo',
-          onClick: () => {
-            setIsLoading(true);
-            // NOTE: This requires a corresponding 'undoLastAction' event handler on the server.
-            socketRef.current.emit('undoLastAction');
-            addNotification('Undo request sent to server.', 'info');
-            setTimeout(() => setIsLoading(false), 3000);
-          },
-        },
-        { label: 'Cancel', onClick: () => {} },
-      ],
-    });
-  }, [isConnected, isLoading, isAuctioneerView, addNotification]);
 
+    if (!state.currentPlayer) {
+      addNotification('No current player to reset bid for', 'error');
+      return;
+    }
+
+    setIsLoading(true);
+    socketRef.current.emit('resetBid');
+    setTimeout(() => setIsLoading(false), 1500);
+  }, [state.currentPlayer, isConnected, isLoading, isAuctioneerView, addNotification]);
+
+ const undoLastAction = useCallback(() => {
+  if (!socketRef.current || !isConnected || isLoading || !isAuctioneerView) {
+    return;
+  }
+  
+  confirmAlert({
+    title: 'Confirm Undo',
+    message: 'This will revert the last bid placed for the current player. Are you sure?',
+    buttons: [
+      {
+        label: 'Yes, Undo',
+        onClick: () => {
+          setIsLoading(true);
+          socketRef.current.emit('undoLastAction');
+          setTimeout(() => setIsLoading(false), 3000);
+        },
+      },
+      { label: 'Cancel', onClick: () => {} },
+    ],
+  });
+}, [isConnected, isLoading, isAuctioneerView]);
 
   const resetAuction = useCallback(() => {
     if (!socketRef.current || !isConnected || isLoading || !isAuctioneerView) {
@@ -415,7 +608,7 @@ function AppContent() {
           onClick: () => {
             setIsLoading(true);
             socketRef.current.emit('resetAuction');
-            setTimeout(() => setIsLoading(false), 3000);
+            setTimeout(() => setIsLoading(false), 5000);
           },
         },
         { label: 'Cancel', onClick: () => {} },
@@ -423,7 +616,7 @@ function AppContent() {
     });
   }, [isConnected, isLoading, isAuctioneerView]);
 
-  // Socket connection management
+  // Socket connection management with enhanced error handling
   useEffect(() => {
     console.log('Connecting to backend:', backendUrl);
     
@@ -485,12 +678,21 @@ function AppContent() {
               }
             });
             
+            // Recalculate synergy for teams if needed
+            if (updatedState.teams && Array.isArray(updatedState.teams)) {
+              updatedState.teams = updatedState.teams.map(team => ({
+                ...team,
+                synergy: Number.isFinite(team.synergy) ? team.synergy : calculateSynergy(team.players || [])
+              }));
+            }
+            
             return updatedState;
           });
         }
         setIsLoading(false);
       } catch (error) {
         console.error('Error processing update:', error);
+        addNotification('Error processing server update', 'error');
       }
     });
 
@@ -531,6 +733,24 @@ function AppContent() {
         console.error('Error handling playerSkipped event:', error);
       }
     });
+
+    socket.on('bidReset', (data) => {
+      try {
+        addNotification(`Bid reset for ${data?.playerName || 'player'}`, 'info');
+      } catch (error) {
+        console.error('Error handling bidReset event:', error);
+      }
+    });
+
+    // NEW: Handle undo completed event
+   socket.on('undoCompleted', (data) => {
+  try {
+    const playerName = data?.playerName || 'unknown player';
+    addNotification(`Successfully undid bid for ${playerName}`, 'success');
+  } catch (error) {
+    console.error('Error handling undoCompleted event:', error);
+  }
+});
 
     socket.on('setSummary', (teams) => {
       try {
@@ -609,14 +829,6 @@ function AppContent() {
         setIsLoading(false);
       } catch (error) {
         console.error('Error handling error event:', error);
-      }
-    });
-
-    socket.on('bidReset', (data) => {
-      try {
-        addNotification(`Bid reset for ${data?.playerName || 'player'}`, 'info');
-      } catch (error) {
-        console.error('Error handling bidReset event:', error);
       }
     });
 
@@ -734,8 +946,6 @@ function AppContent() {
     return (
       <div className="min-h-screen">
         <NotificationContainer />
-
-        {/* COMPACT HEADER */}
         <header className="auctioneer-header-modern text-white">
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-4">
@@ -767,14 +977,11 @@ function AppContent() {
           </div>
         </header>
 
-        {/* MAIN CONTENT - COMPACT LAYOUT */}
         <main className="pb-24 p-4">
           {state.currentPlayer ? (
             <div className="main-compact-grid">
-              {/* LEFT SIDE - PLAYER SPOTLIGHT */}
               <div className="player-spotlight">
                 <div className="flex flex-col md:flex-row items-center md:items-start gap-4">
-                  {/* Player Image */}
                   <div className="flex-shrink-0">
                     <img
                       src={`/photos/${state.currentPlayer.sNo}.png`}
@@ -786,13 +993,10 @@ function AppContent() {
                       }}
                     />
                   </div>
-
-                  {/* Player Details */}
                   <div className="flex-1 min-w-0 text-center md:text-left">
                     <h2 className="player-name-spotlight truncate">
                       {state.currentPlayer.name}
                     </h2>
-                    
                     <div className="player-details-grid">
                       <div className="player-detail-card">
                         <div className="text-slate-600 text-xs mb-1">Role</div>
@@ -820,7 +1024,6 @@ function AppContent() {
                       </div>
                     </div>
 
-                    {/* Current Bid Display */}
                     <div className={`bid-status-spotlight ${state.currentBid > 0 ? 'active-bidding' : ''}`}>
                       {state.currentBid === 0 ? (
                         <div>
@@ -852,7 +1055,6 @@ function AppContent() {
                 </div>
               </div>
 
-              {/* RIGHT SIDE - TEAM BIDDING GRID */}
               <div className="team-grid-modern">
                 <div className="team-cards-grid">
                   {state.teams.map((team) => {
@@ -872,7 +1074,6 @@ function AppContent() {
                         disabled={!canTeamBid}
                         className={`team-bid-card ${state.currentBidTeam === team.id ? 'current-highest' : ''}`}
                       >
-                        {/* Line 1: Team Name + Status Badge */}
                         <div className="flex items-center justify-between w-full mb-3">
                           <div className="team-name-large">{team.name}</div>
                           {state.currentBidTeam === team.id && (
@@ -881,14 +1082,11 @@ function AppContent() {
                             </span>
                           )}
                         </div>
-                        
-                        {/* Line 2: Budget | Next Bid */}
                         <div className="flex items-center justify-between w-full">
                           <div className="text-center">
                             <div className="text-xs text-slate-600 mb-1">Budget</div>
                             <div className="font-bold text-green-600 text-lg">{fmtCr(team.remaining)}</div>
                           </div>
-                          
                           <div className="text-center">
                             <div className="text-xs text-slate-600 mb-1">Next Bid</div>
                             <div className={`font-bold text-lg ${canTeamBid ? 'text-orange-500' : 'text-red-500'}`}>
@@ -903,7 +1101,6 @@ function AppContent() {
               </div>
             </div>
           ) : (
-            /* EMPTY STATE */
             <div className="empty-auction-state">
               <div className="empty-state-icon">🏏</div>
               <h2 className="empty-state-title">
@@ -919,7 +1116,6 @@ function AppContent() {
           )}
         </main>
 
-        {/* COMPACT CONTROL PANEL */}
         <div className="control-panel-modern">
           <div className="control-buttons-grid">
             <button
@@ -930,26 +1126,23 @@ function AppContent() {
               <span>💰</span>
               {isLoading ? 'PROCESSING...' : 'SELL'}
             </button>
-            
             <button
               onClick={skipPlayer}
               disabled={isLoading || !isConnected || !state.currentPlayer}
               className="control-button-modern btn-skip"
             >
-              <span>⭐️</span>
+              <span>⏭️</span>
               {isLoading ? 'PROCESSING...' : 'SKIP'}
             </button>
-            
             <button
-              onClick={undoLastAction}
-              disabled={isLoading || !isConnected}
-              className="control-button-modern btn-undo"
+              onClick={resetBid}
+              disabled={isLoading || !isConnected || !state.currentPlayer}
+              className="control-button-modern btn-reset"
             >
-              <span>↩️</span>
-              {isLoading ? 'PROCESSING...' : 'UNDO'}
+              <span>🔄</span>
+              {isLoading ? 'PROCESSING...' : 'RESET BID'}
             </button>
             
-            {/* Only show RESET AUCTION after 48 players have been processed */}
             {state.currentPlayerIndex >= 48 && (
               <button
                 onClick={resetAuction}
@@ -977,6 +1170,113 @@ function AppContent() {
       synergy: 0
     };
     const myCurrentBid = state.currentBidTeam === teamId;
+
+    // Define the content for each tab
+    const teamTabs = [
+      {
+        label: <>My Team Roster ({myTeam.players.length}/8)</>,
+        content: (
+          <div>
+            <div className="mb-4">
+              <div className="text-sm text-gray-600">
+                Total Synergy: <span className="font-semibold text-orange-600">
+                  {Number.isFinite(myTeam.synergy) ? Math.round(myTeam.synergy) : '0'}
+                </span>
+              </div>
+            </div>
+            <div className="overflow-x-auto">
+              {myTeam.players.length === 0 ? (
+                <div className="text-center py-12">
+                  <div className="text-6xl mb-4">👥</div>
+                  <h3 className="text-xl font-bold text-gray-700 mb-2">No Players Yet</h3>
+                  <p className="text-gray-500">Your purchased players will appear here</p>
+                </div>
+              ) : (
+                <table>
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600">#</th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600">Player Name</th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600">Role</th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600">Archetype</th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600">Base Score</th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600">Base Price</th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600">Bought Price</th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600">Individual Synergy</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {myTeam.players.map((player, index) => {
+                      const individualSynergy = player.individualSynergy || player.baseScore; // Simplified
+                      return (
+                        <tr key={player.sNo || index} className="hover:bg-gray-50">
+                          <td className="px-4 py-3 text-sm text-gray-600">{index + 1}</td>
+                          <td className="px-4 py-3">
+                            <div className="font-semibold text-gray-800">{player.name || 'Unknown'}</div>
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-600">{player.role || 'N/A'}</td>
+                          <td className="px-4 py-3">
+                            <span className="badge pink">
+                              {player.archetype || 'N/A'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-sm font-semibold text-pink-600">
+                            {player.baseScore || 0}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-600">
+                            {fmtL(player.basePrice || 0)}
+                          </td>
+                          <td className="px-4 py-3 text-sm font-semibold text-green-600">
+                            {fmtL(player.boughtPrice || 0)}
+                          </td>
+                          <td className="px-4 py-3 text-sm">
+                             <span className={`font-semibold ${
+                                  individualSynergy > (player.baseScore || 0) 
+                                    ? 'text-green-600' 
+                                    : individualSynergy < (player.baseScore || 0)
+                                    ? 'text-red-600'
+                                    : 'text-gray-600'
+                                }`}>
+                                  {Math.round(individualSynergy)}
+                                </span>
+                                <div className="text-xs text-gray-500">
+                                  {individualSynergy > (player.baseScore || 0) 
+                                    ? `+${Math.round(individualSynergy - (player.baseScore || 0))} synergy`
+                                    : individualSynergy < (player.baseScore || 0)
+                                    ? `${Math.round(individualSynergy - (player.baseScore || 0))} synergy`
+                                    : 'No synergy effect'
+                                  }
+                                </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+        )
+      },
+      {
+        label: <>All Players ({state.allPlayers.length})</>,
+        content: (
+          state.allPlayers.length > 0 ? (
+            <AllPlayersTable 
+              allPlayers={state.allPlayers} 
+              currentPlayer={state.currentPlayer}
+              teams={state.teams}
+            />
+          ) : (
+            <div className="text-center py-12">
+              <div className="text-6xl mb-4">📋</div>
+              <h3 className="text-xl font-bold text-gray-700 mb-2">Player Data Loading</h3>
+              <p className="text-gray-500">All players will appear here once the auction starts</p>
+            </div>
+          )
+        )
+      }
+    ];
 
     return (
       <div className="min-h-screen p-4">
@@ -1074,8 +1374,6 @@ function AppContent() {
                       <span className="font-semibold">{fmtL(state.currentPlayer.basePrice)}</span>
                     </div>
                   </div>
-
-                  {/* Current bidding status */}
                   <div className={`p-3 rounded-2xl border ${
                     myCurrentBid 
                       ? 'bg-green-50 border-green-200' 
@@ -1103,7 +1401,6 @@ function AppContent() {
                   </div>
                 </div>
               </div>
-
               <div className="text-center p-4 bg-orange-50 rounded-2xl">
                 <p className="text-orange-800 font-semibold">Auctioneer controls all bidding</p>
                 <p className="text-orange-600 text-sm">Watch for your team's bids and player assignments</p>
@@ -1111,178 +1408,10 @@ function AppContent() {
             </div>
           </div>
         )}
+        
+        {/* Use the new Tabs component */}
+        <Tabs tabs={teamTabs} />
 
-        {/* Tab Navigation */}
-        <div className="card bg-white mb-6">
-          <div className="flex border-b">
-            <button
-              onClick={() => setActiveTeamTab('roster')}
-              className={`px-6 py-3 font-semibold transition-colors ${
-                activeTeamTab === 'roster' 
-                  ? 'text-pink-600 border-b-2 border-pink-600 bg-pink-50' 
-                  : 'text-gray-600 hover:text-gray-800'
-              }`}
-            >
-              My Team Roster ({myTeam.players.length}/8)
-            </button>
-            <button
-              onClick={() => setActiveTeamTab('allplayers')}
-              className={`px-6 py-3 font-semibold transition-colors ${
-                activeTeamTab === 'allplayers' 
-                  ? 'text-pink-600 border-b-2 border-pink-600 bg-pink-50' 
-                  : 'text-gray-600 hover:text-gray-800'
-              }`}
-            >
-              All Players ({state.allPlayers.length})
-            </button>
-          </div>
-
-          {/* Tab Content */}
-          <div className="p-6">
-            {activeTeamTab === 'roster' && (
-              <div>
-                <div className="mb-4">
-                  <div className="text-sm text-gray-600">
-                    Total Synergy: <span className="font-semibold text-orange-600">
-                      {Number.isFinite(myTeam.synergy) ? Math.round(myTeam.synergy) : '0'}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="overflow-x-auto">
-                  {myTeam.players.length === 0 ? (
-                    <div className="text-center py-12">
-                      <div className="text-6xl mb-4">👥</div>
-                      <h3 className="text-xl font-bold text-gray-700 mb-2">No Players Yet</h3>
-                      <p className="text-gray-500">Your purchased players will appear here</p>
-                    </div>
-                  ) : (
-                    <table>
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600">#</th>
-                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600">Player Name</th>
-                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600">Role</th>
-                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600">Archetype</th>
-                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600">Base Score</th>
-                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600">Base Price</th>
-                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600">Bought Price</th>
-                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600">Individual Synergy</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y">
-                        {myTeam.players.map((player, index) => {
-                          // Calculate individual synergy contribution
-                          const calculateIndividualSynergy = (targetPlayer, roster) => {
-                            if (!targetPlayer || !roster) return targetPlayer?.baseScore || 0;
-                            
-                            let baseScore = targetPlayer.baseScore || 0;
-                            let synergyBonus = 0;
-                            
-                            // Calculate synergy with other players
-                            roster.forEach((otherPlayer, otherIndex) => {
-                              if (otherIndex === index || !otherPlayer?.archetype || !targetPlayer?.archetype) return;
-                              
-                              let arch1 = targetPlayer.archetype.trim();
-                              let arch2 = otherPlayer.archetype.trim();
-                              
-                              if (!arch1 || !arch2) return;
-                              
-                              // Consistent ordering for lookup
-                              if (arch1 > arch2) [arch1, arch2] = [arch2, arch1];
-                              const key = `${arch1}-${arch2}`;
-                              
-                              // You'll need to import or define synergy rules in frontend
-                              // For now, using simplified rules - ideally sync with backend
-                              const synergyRules = {
-                                positive: {
-                                  'AO-AN': 20, 'BA-FI': 15, 'AN-WK': 15, 'BA-BO': 20,
-                                  'PA-SP': 25, 'PA-PA': 10, 'CS-PA': 20, 'CS-SP': 15,
-                                  'BA-CS': 10, 'BO-CS': 10,
-                                },
-                                negative: {
-                                  'AO-AO': -15, 'FI-FI': -10, 'SP-SP': -5,
-                                  'BA-BA': -5, 'WK-WK': -10, 'CS-CS': -10, 'BO-BO': -5,
-                                }
-                              };
-                              
-                              synergyBonus += synergyRules.positive[key] || 0;
-                              synergyBonus += synergyRules.negative[key] || 0;
-                            });
-                            
-                            return baseScore + synergyBonus;
-                          };
-                          
-                          const individualSynergy = player.individualSynergy || 
-                            calculateIndividualSynergy(player, myTeam.players);
-                          
-                          return (
-                            <tr key={player.sNo || index} className="hover:bg-gray-50">
-                              <td className="px-4 py-3 text-sm text-gray-600">{index + 1}</td>
-                              <td className="px-4 py-3">
-                                <div className="font-semibold text-gray-800">{player.name || 'Unknown'}</div>
-                              </td>
-                              <td className="px-4 py-3 text-sm text-gray-600">{player.role || 'N/A'}</td>
-                              <td className="px-4 py-3">
-                                <span className="badge pink">
-                                  {player.archetype || 'N/A'}
-                                </span>
-                              </td>
-                              <td className="px-4 py-3 text-sm font-semibold text-pink-600">
-                                {player.baseScore || 0}
-                              </td>
-                              <td className="px-4 py-3 text-sm text-gray-600">
-                                {fmtL(player.basePrice || 0)}
-                              </td>
-                              <td className="px-4 py-3 text-sm font-semibold text-green-600">
-                                {fmtL(player.boughtPrice || 0)}
-                              </td>
-                              <td className="px-4 py-3 text-sm">
-                                <span className={`font-semibold ${
-                                  individualSynergy > (player.baseScore || 0) 
-                                    ? 'text-green-600' 
-                                    : individualSynergy < (player.baseScore || 0)
-                                    ? 'text-red-600'
-                                    : 'text-gray-600'
-                                }`}>
-                                  {Math.round(individualSynergy)}
-                                </span>
-                                <div className="text-xs text-gray-500">
-                                  {individualSynergy > (player.baseScore || 0) 
-                                    ? `+${Math.round(individualSynergy - (player.baseScore || 0))} synergy`
-                                    : individualSynergy < (player.baseScore || 0)
-                                    ? `${Math.round(individualSynergy - (player.baseScore || 0))} synergy`
-                                    : 'No synergy effect'
-                                  }
-                                </div>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {activeTeamTab === 'allplayers' && state.allPlayers.length > 0 && (
-              <AllPlayersTable 
-                allPlayers={state.allPlayers} 
-                currentPlayer={state.currentPlayer}
-                teams={state.teams}
-              />
-            )}
-
-            {activeTeamTab === 'allplayers' && state.allPlayers.length === 0 && (
-              <div className="text-center py-12">
-                <div className="text-6xl mb-4">📋</div>
-                <h3 className="text-xl font-bold text-gray-700 mb-2">Player Data Loading</h3>
-                <p className="text-gray-500">All players will appear here once the auction starts</p>
-              </div>
-            )}
-          </div>
-        </div>
       </div>
     );
   }
@@ -1296,13 +1425,11 @@ function AppContent() {
     return (
       <div className="min-h-screen p-4">
         <NotificationContainer />
-
         <div className="flex flex-wrap gap-2 mb-3">
           <a href="/" className="text-sm text-pink-600 underline hover:text-orange-500">
             ← Back to Role Select
           </a>
         </div>
-
         <header className="header-gradient text-white p-4 rounded-2xl mb-4">
           <h1 className="text-2xl font-bold text-center">CPL Auction — Observer</h1>
           <div className="text-center mt-2">
@@ -1315,11 +1442,8 @@ function AppContent() {
             ></div>
           </div>
         </header>
-
         <ConnectionStatus />
-
-        {/* Teams overview grid - UPDATED LAYOUT */}
-        <div className="grid grid-cols-2 gap-4 mb-6"> {/* UPDATED THIS LINE */}
+        <div className="grid grid-cols-2 gap-4 mb-6">
           {state.teams.map(team => (
             <div key={team.id} className="card bg-white p-4 transition-all hover:transform hover:-translate-y-1">
               <div className="flex justify-between items-center mb-4">
@@ -1330,7 +1454,6 @@ function AppContent() {
                   {state.connectedTeams.includes(team.id) ? '● Online' : '● Offline'}
                 </span>
               </div>
-              
               <div className="observer-stats-grid">
                 <div className="observer-stat-item">
                   <div className="stat-label">Budget Left</div>
@@ -1360,8 +1483,6 @@ function AppContent() {
             </div>
           ))}
         </div>
-
-        {/* Current player display */}
         {state.currentPlayer && (
           <div className="card bg-white p-6 mb-6">
             <div className="flex items-start gap-4 mb-4">
@@ -1384,7 +1505,6 @@ function AppContent() {
                 </div>
               </div>
             </div>
-
             <div className="bg-gray-50 p-4 rounded-2xl border border-gray-200">
               {state.currentBid === 0 ? (
                 <div className="text-lg text-gray-700">
@@ -1401,8 +1521,6 @@ function AppContent() {
             </div>
           </div>
         )}
-
-        {/* All Players Table for Observer */}
         {state.allPlayers.length > 0 && (
           <div className="card bg-white mb-6">
             <div className="bg-gray-50 p-4 border-b rounded-t-2xl">
@@ -1418,8 +1536,6 @@ function AppContent() {
             </div>
           </div>
         )}
-
-        {/* No current player message */}
         {!state.currentPlayer && (
           <div className="card bg-white p-6 text-center">
             <div className="text-6xl mb-4">🏏</div>
@@ -1443,7 +1559,6 @@ function AppContent() {
         <div className="text-6xl mb-4">🏏</div>
         <h1 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-pink-500 to-orange-400 mb-2">CPL Auction</h1>
         <p className="text-gray-600 mb-6">Select your role to join the auction</p>
-
         <div className="space-y-3">
           <button
             onClick={() => (window.location.href = '/auctioneer')}
@@ -1451,7 +1566,6 @@ function AppContent() {
           >
             Join as Auctioneer
           </button>
-
           <div className="grid grid-cols-2 gap-2">
             {[1, 2, 3, 4, 5, 6, 7, 8].map(teamNum => (
               <button
@@ -1463,14 +1577,12 @@ function AppContent() {
               </button>
             ))}
           </div>
-
           <button
             onClick={() => (window.location.href = '/observer')}
             className="w-full btn-secondary"
           >
             Join as Observer
           </button>
-
           <div className="text-xs text-gray-500 mt-6 p-2 bg-gray-50 rounded-lg">
             <div>Backend: <code className="bg-gray-200 px-1 rounded">{backendUrl}</code></div>
             <div className="mt-1">
