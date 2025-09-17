@@ -30,6 +30,8 @@ let isReAuction = false;
 let reAuctionUnsold = [];
 let auctioneerConnected = false;
 let connectedTeams = new Set();
+let auctionHistory = []; // Store auction states for undo functionality
+const MAX_HISTORY_SIZE = 50; // Limit history size to prevent memory issues
 
 let teams = Array.from({ length: 8 }, (_, i) => ({
   id: i + 1,
@@ -88,6 +90,72 @@ function updatePlayerStatus(playerSNo, status, soldToTeam = null, soldPrice = nu
     if (soldPrice) {
       allPlayers[playerIndex].soldPrice = soldPrice;
     }
+  }
+}
+
+// Helper function to create a snapshot of current auction state
+function createAuctionSnapshot(action, playerData = null) {
+  const snapshot = {
+    timestamp: Date.now(),
+    action,
+    playerData,
+    state: {
+      currentPlayerIndex,
+      currentBid,
+      currentBidTeam,
+      isReAuction,
+      unsold: [...unsold],
+      reAuctionUnsold: [...reAuctionUnsold],
+      teams: teams.map(team => ({
+        ...team,
+        players: [...team.players],
+        socketId: undefined // Don't store socket info
+      })),
+      allPlayers: allPlayers.map(p => ({ ...p }))
+    }
+  };
+  
+  auctionHistory.push(snapshot);
+  
+  // Keep history size manageable
+  if (auctionHistory.length > MAX_HISTORY_SIZE) {
+    auctionHistory.shift();
+  }
+  
+  console.log(`Auction snapshot created: ${action} (History size: ${auctionHistory.length})`);
+}
+
+// Helper function to restore auction state from snapshot
+function restoreAuctionSnapshot(snapshot) {
+  try {
+    // Restore main auction state
+    currentPlayerIndex = snapshot.state.currentPlayerIndex;
+    currentBid = snapshot.state.currentBid;
+    currentBidTeam = snapshot.state.currentBidTeam;
+    isReAuction = snapshot.state.isReAuction;
+    unsold = [...snapshot.state.unsold];
+    reAuctionUnsold = [...snapshot.state.reAuctionUnsold];
+    allPlayers = snapshot.state.allPlayers.map(p => ({ ...p }));
+    
+    // Restore team states but preserve socket connections
+    snapshot.state.teams.forEach((savedTeam, index) => {
+      if (teams[index]) {
+        const currentSocketId = teams[index].socketId;
+        const currentIsConnected = teams[index].isConnected;
+        
+        teams[index] = {
+          ...savedTeam,
+          socketId: currentSocketId,
+          isConnected: currentIsConnected
+        };
+      }
+    });
+    
+    console.log(`Auction state restored to: ${snapshot.action} at ${new Date(snapshot.timestamp).toLocaleTimeString()}`);
+    return true;
+  } catch (error) {
+    console.error('Error restoring auction snapshot:', error);
+    return false;
   }
 }
 
@@ -378,6 +446,9 @@ async function resetAuction() {
   console.log('Starting auction reset...');
   
   try {
+    // Clear auction history
+    auctionHistory = [];
+    
     // Clear all auction state
     unsold = [];
     reAuctionUnsold = [];
@@ -430,7 +501,9 @@ app.get('/health', (req, res) => {
     currentPlayer: getCurrentPlayer()?.name || 'None',
     isReAuction,
     auctioneerConnected,
-    connectedTeams: Array.from(connectedTeams).length
+    connectedTeams: Array.from(connectedTeams).length,
+    undoHistorySize: auctionHistory.length,
+    lastAction: auctionHistory.length > 0 ? auctionHistory[auctionHistory.length - 1].action : 'None'
   });
 });
 
@@ -579,11 +652,17 @@ io.on('connection', (socket) => {
       return;
     }
     
+    // CREATE SNAPSHOT BEFORE MAKING CHANGES
+    createAuctionSnapshot('BEFORE_SOLD', {
+      playerName: player.name,
+      teamId: currentBidTeam,
+      amount: currentBid
+    });
+    
     // Complete the sale
     team.remaining -= currentBid;
     team.spent += currentBid;
     
-    // Calculate individual player synergy before adding to team
     const playerWithSynergy = { 
       ...player, 
       boughtPrice: currentBid,
@@ -592,8 +671,6 @@ io.on('connection', (socket) => {
     
     team.players.push(playerWithSynergy);
     team.synergy = calculateSynergy(team.players);
-
-    // Update player status in allPlayers tracking
     updatePlayerStatus(player.sNo, 'sold', currentBidTeam, currentBid);
   
     console.log(`Player sold: ${player.name} to Team ${currentBidTeam} for ₹${(currentBid/100000).toFixed(2)}L`);
@@ -632,17 +709,26 @@ io.on('connection', (socket) => {
     }
 
     const player = getCurrentPlayer();
-    if (player) {
-      unsold.push(player);
-      // Update player status - skipped players remain 'available' for re-auction
-      updatePlayerStatus(player.sNo, 'available');
-      
-      console.log(`Player skipped: ${player.name}`);
-      io.emit('playerSkipped', { 
-        player, 
-        reason: 'No bids received' 
-      });
+    if (!player) {
+      socket.emit('error', 'No player available to skip');
+      return;
     }
+    
+    // CREATE SNAPSHOT BEFORE MAKING CHANGES
+    createAuctionSnapshot('BEFORE_SKIP', {
+      playerName: player.name,
+      currentBid: currentBid,
+      currentBidTeam: currentBidTeam
+    });
+
+    unsold.push(player);
+    updatePlayerStatus(player.sNo, 'available');
+    
+    console.log(`Player skipped: ${player.name}`);
+    io.emit('playerSkipped', { 
+      player, 
+      reason: 'No bids received' 
+    });
 
     currentPlayerIndex++;
     currentBid = 0;
@@ -678,6 +764,47 @@ io.on('connection', (socket) => {
         message: 'Bidding reset to base price' 
       });
       emitUpdate();
+    }
+  });
+
+  // NEW: Add the undo handler
+  socket.on('undoLastAction', () => {
+    if (!socket.isAuctioneer) {
+      socket.emit('error', 'Only auctioneer can undo actions');
+      return;
+    }
+    
+    if (auctionHistory.length === 0) {
+      socket.emit('error', 'No actions to undo');
+      return;
+    }
+    
+    // Get the most recent snapshot (which should be the "BEFORE_" snapshot)
+    const lastSnapshot = auctionHistory.pop();
+    
+    if (!lastSnapshot || !lastSnapshot.action.startsWith('BEFORE_')) {
+      socket.emit('error', 'Invalid undo state - cannot restore');
+      return;
+    }
+    
+    // Restore the auction state
+    const restored = restoreAuctionSnapshot(lastSnapshot);
+    
+    if (restored) {
+      const actionType = lastSnapshot.action.replace('BEFORE_', '');
+      const playerName = lastSnapshot.playerData?.playerName || 'Unknown';
+      
+      console.log(`Undo successful: Reverted ${actionType} for ${playerName}`);
+      
+      io.emit('undoCompleted', {
+        action: actionType,
+        playerName: playerName,
+        message: `Successfully undid ${actionType.toLowerCase()} action for ${playerName}`
+      });
+      
+      emitUpdate();
+    } else {
+      socket.emit('error', 'Failed to undo - auction state could not be restored');
     }
   });
 
