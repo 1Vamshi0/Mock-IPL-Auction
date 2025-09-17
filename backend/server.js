@@ -1,4 +1,3 @@
-// server.js
 const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
@@ -20,7 +19,7 @@ app.use(express.static(path.join(__dirname, 'client', 'dist')));
 app.use('/photos', express.static(path.join(__dirname, 'client', 'public', 'photos')));
 
 let players = [];
-let allPlayers = []; // New: master list with status tracking
+let allPlayers = [];
 let unsold = [];
 let currentPlayerIndex = 0;
 let sets = [[], [], []];
@@ -30,13 +29,13 @@ let isReAuction = false;
 let reAuctionUnsold = [];
 let auctioneerConnected = false;
 let connectedTeams = new Set();
-let auctionHistory = []; // Store auction states for undo functionality
-const MAX_HISTORY_SIZE = 50; // Limit history size to prevent memory issues
+let auctionHistory = [];
+const MAX_HISTORY_SIZE = 50;
 
 let teams = Array.from({ length: 8 }, (_, i) => ({
   id: i + 1,
   name: `Team ${i + 1}`,
-  budget: 450000000, // 45 Cr
+  budget: 450000000,
   remaining: 450000000,
   spent: 0,
   players: [],
@@ -104,12 +103,10 @@ function createAuctionSnapshot(action, playerData = null) {
       currentBid,
       currentBidTeam,
       isReAuction,
-      unsold: [...unsold],
-      reAuctionUnsold: [...reAuctionUnsold],
       teams: teams.map(team => ({
         ...team,
         players: [...team.players],
-        socketId: undefined // Don't store socket info
+        socketId: undefined
       })),
       allPlayers: allPlayers.map(p => ({ ...p }))
     }
@@ -117,7 +114,6 @@ function createAuctionSnapshot(action, playerData = null) {
   
   auctionHistory.push(snapshot);
   
-  // Keep history size manageable
   if (auctionHistory.length > MAX_HISTORY_SIZE) {
     auctionHistory.shift();
   }
@@ -128,16 +124,12 @@ function createAuctionSnapshot(action, playerData = null) {
 // Helper function to restore auction state from snapshot
 function restoreAuctionSnapshot(snapshot) {
   try {
-    // Restore main auction state
     currentPlayerIndex = snapshot.state.currentPlayerIndex;
     currentBid = snapshot.state.currentBid;
     currentBidTeam = snapshot.state.currentBidTeam;
     isReAuction = snapshot.state.isReAuction;
-    unsold = [...snapshot.state.unsold];
-    reAuctionUnsold = [...snapshot.state.reAuctionUnsold];
     allPlayers = snapshot.state.allPlayers.map(p => ({ ...p }));
     
-    // Restore team states but preserve socket connections
     snapshot.state.teams.forEach((savedTeam, index) => {
       if (teams[index]) {
         const currentSocketId = teams[index].socketId;
@@ -171,7 +163,6 @@ function loadPlayers() {
       return;
     }
 
-    // Reset all player arrays
     players = [];
     allPlayers = [];
     
@@ -199,17 +190,15 @@ function loadPlayers() {
             role: sanitizeString(row.Role),
             archetype: sanitizeString(row.Archetype),
             baseScore: parseInt(row.Base_Score) || 0,
-            // CSV base price is in Lakhs → convert to rupees
             basePrice: (parseInt(row.Base_Price) || 0) * 100000,
-            status: 'available', // New: track player status
-            soldToTeam: null,    // New: track which team bought player
-            soldPrice: null      // New: track sold price
+            status: 'available',
+            soldToTeam: null,
+            soldPrice: null
           };
           
-          // Validate required fields
           if (player.name && player.archetype && player.baseScore > 0 && player.basePrice > 0) {
             players.push(player);
-            allPlayers.push({ ...player }); // Create copy for allPlayers tracking
+            allPlayers.push({ ...player });
           } else {
             console.warn(`Skipping invalid player row: ${JSON.stringify(row)}`);
           }
@@ -232,7 +221,6 @@ function loadPlayers() {
           console.warn(`Warning: Only ${players.length} players loaded. Expected at least 72 for full auction.`);
         }
         
-        // Shuffle and divide into sets
         players = players.sort(() => Math.random() - 0.5);
         const playersPerSet = Math.ceil(players.length / 3);
         sets = [
@@ -241,7 +229,6 @@ function loadPlayers() {
           players.slice(playersPerSet * 2)
         ];
 
-        // Also shuffle allPlayers to match the same order for consistency
         allPlayers = allPlayers.sort((a, b) => {
           const aIndex = players.findIndex(p => p.sNo === a.sNo);
           const bIndex = players.findIndex(p => p.sNo === b.sNo);
@@ -265,14 +252,12 @@ function calculateSynergy(roster) {
   let positive = 0;
   let negative = 0;
 
-  // Calculate base total safely
   for (const player of roster) {
     if (player && typeof player.baseScore === 'number') {
       baseTotal += player.baseScore;
     }
   }
 
-  // Calculate synergy bonuses/penalties
   for (let i = 0; i < roster.length; i++) {
     for (let j = i + 1; j < roster.length; j++) {
       const player1 = roster[i];
@@ -285,7 +270,6 @@ function calculateSynergy(roster) {
       
       if (!arch1 || !arch2) continue;
       
-      // Ensure consistent ordering for lookup
       if (arch1 > arch2) [arch1, arch2] = [arch2, arch1];
       const key = `${arch1}-${arch2}`;
       
@@ -301,17 +285,15 @@ function calculateSynergy(roster) {
 function calculatePlayerSynergy(targetPlayer, roster) {
   if (!targetPlayer || !Array.isArray(roster) || roster.length === 0) return 0;
   
-  // Find the target player in roster
   const playerIndex = roster.findIndex(p => p.sNo === targetPlayer.sNo);
   if (playerIndex === -1) return 0;
   
-  let playerSynergy = targetPlayer.baseScore || 0; // Start with base score
+  let playerSynergy = targetPlayer.baseScore || 0;
   let positiveBonus = 0;
   let negativePenalty = 0;
 
-  // Calculate synergy with all other players in roster
   for (let i = 0; i < roster.length; i++) {
-    if (i === playerIndex) continue; // Skip self
+    if (i === playerIndex) continue;
     
     const otherPlayer = roster[i];
     if (!otherPlayer?.archetype || !targetPlayer?.archetype) continue;
@@ -321,7 +303,6 @@ function calculatePlayerSynergy(targetPlayer, roster) {
     
     if (!arch1 || !arch2) continue;
     
-    // Ensure consistent ordering for lookup
     if (arch1 > arch2) [arch1, arch2] = [arch2, arch1];
     const key = `${arch1}-${arch2}`;
     
@@ -350,239 +331,121 @@ function getCurrentPlayer() {
 }
 
 function getIncrement(bid) {
-  if (bid < 5000000) return 500000;     // +50L
-  if (bid < 10000000) return 1000000;   // +1Cr
-  if (bid < 20000000) return 2000000;   // +2Cr
-  return 5000000;                       // +5Cr
+  if (bid < 5000000) return 500000;
+  if (bid < 10000000) return 1000000;
+  if (bid < 20000000) return 2000000;
+  return 5000000;
 }
 
 // Emit state updates
 function emitUpdate() {
   try {
     const currentPlayer = getCurrentPlayer();
-    const computeNextFrom = currentBid || (currentPlayer ? currentPlayer.basePrice : 0);
-    const nextIncrement = currentPlayer ? getIncrement(computeNextFrom) : 0;
-    const totalPlayers = isReAuction ? reAuctionUnsold.length : players.length;
+    const nextIncrement = currentPlayer 
+      ? (currentBid === 0 ? getIncrement(currentPlayer.basePrice) : getIncrement(currentBid))
+      : 0;
 
-    const baseUpdateData = {
-      teams: teams.map(t => ({ 
-        ...t, 
-        socketId: undefined,
-        synergy: Number.isFinite(t.synergy) ? t.synergy : 0
+    const updateData = {
+      teams: teams.map(team => ({
+        ...team,
+        socketId: undefined
       })),
       currentPlayer,
       currentBid,
       currentBidTeam,
       isReAuction,
       currentPlayerIndex,
-      totalPlayers,
+      totalPlayers: players.length,
       connectedTeams: Array.from(connectedTeams),
       auctioneerConnected,
       nextIncrement,
-      allPlayers: allPlayers // New: include all players with status
+      allPlayers
     };
 
-    io.to('auctioneer').emit('update', baseUpdateData);
-    
-    teams.forEach(team => {
-      if (team.socketId) {
-        io.to(team.socketId).emit('update', {
-          ...baseUpdateData,
-          myTeam: {
-            ...team,
-            socketId: undefined,
-            synergy: Number.isFinite(team.synergy) ? team.synergy : 0
-          },
-        });
-      }
-    });
-    
-    io.to('observers').emit('update', baseUpdateData);
-
-    console.log(
-      'Update emitted - Current Player:',
-      currentPlayer?.name || 'None',
-      '| Current Bid:',
-      currentBid,
-      '| Next +',
-      nextIncrement,
-      '| All Players:',
-      allPlayers.length
-    );
+    io.emit('update', updateData);
   } catch (error) {
-    console.error('Error in emitUpdate:', error);
+    console.error('Error emitting update:', error);
   }
 }
 
-function validateBid(teamId, newBid) {
-  if (!isValidTeamId(teamId)) {
-    return { valid: false, reason: 'Invalid team ID' };
-  }
-  
-  const team = teams[teamId - 1];
-  const player = getCurrentPlayer();
-  
-  if (!player) {
-    return { valid: false, reason: 'No player available' };
-  }
-  
-  if (team.players.length >= 8) {
-    return { valid: false, reason: 'Team roster is full (8 players)' };
-  }
-  
-  if (team.remaining < newBid) {
-    return { valid: false, reason: 'Insufficient team budget' };
-  }
-  
-  if (newBid <= 0) {
-    return { valid: false, reason: 'Bid must be positive' };
-  }
-  
-  return { valid: true };
-}
-
-// Improved reset function
-async function resetAuction() {
-  console.log('Starting auction reset...');
-  
-  try {
-    // Clear auction history
-    auctionHistory = [];
-    
-    // Clear all auction state
-    unsold = [];
-    reAuctionUnsold = [];
-    currentPlayerIndex = 0;
-    currentBid = 0;
-    currentBidTeam = null;
-    isReAuction = false;
-    auctioneerConnected = false;
-    connectedTeams = new Set();
-
-    // Reset teams
-    teams = Array.from({ length: 8 }, (_, i) => ({
-      id: i + 1,
-      name: `Team ${i + 1}`,
-      budget: 450000000,
-      remaining: 450000000,
-      spent: 0,
-      players: [],
-      synergy: 0,
-      isConnected: false,
-      socketId: null
-    }));
-
-    console.log('Auction state reset. Reloading players...');
-    
-    // Reload players - this is now async
-    await loadPlayers();
-    
-    console.log('Players reloaded. Notifying all clients...');
-    
-    // Emit reset notification to all clients
-    io.emit('auctionReset', { 
-      message: 'Auction has been reset and reloaded by Auctioneer' 
-    });
-    
-    console.log('Auction reset completed successfully');
-    
-  } catch (error) {
-    console.error('Error during auction reset:', error);
-    throw error;
-  }
-}
-
-// HTTP routes
-app.get('/health', (req, res) => {
-  res.json({
-    status: 'ok',
-    playersLoaded: players.length,
-    allPlayersTracked: allPlayers.length,
-    currentPlayer: getCurrentPlayer()?.name || 'None',
-    isReAuction,
-    auctioneerConnected,
-    connectedTeams: Array.from(connectedTeams).length,
-    undoHistorySize: auctionHistory.length,
-    lastAction: auctionHistory.length > 0 ? auctionHistory[auctionHistory.length - 1].action : 'None'
-  });
-});
-
-// Socket handling
+// Socket.IO handlers
 io.on('connection', (socket) => {
-  console.log('Client connected:', socket.id);
+  console.log(`New connection: ${socket.id}`);
 
   socket.on('joinAsAuctioneer', () => {
     if (auctioneerConnected) {
-      // Reject second auctioneer
-      socket.emit('forceDisconnect', 'Another auctioneer is already connected');
+      socket.emit('forceDisconnect', 'Another auctioneer is already connected.');
+      return;
+    }
+
+    auctioneerConnected = true;
+    socket.join('auctioneer');
+    console.log(`Auctioneer connected: ${socket.id}`);
+    socket.emit('connectionStatus', {
+      connectedTeams: Array.from(connectedTeams),
+      auctioneerConnected
+    });
+    emitUpdate();
+  });
+
+  socket.on('joinAsTeam', (teamId) => {
+    if (!isValidTeamId(teamId)) {
+      socket.emit('error', 'Invalid team ID');
       socket.disconnect();
       return;
     }
 
-    console.log('Auctioneer connected:', socket.id);
-    socket.join('auctioneer');
-    auctioneerConnected = true;
-    socket.isAuctioneer = true;
-    emitUpdate();
-    io.emit('connectionStatus', { 
-      auctioneerConnected, 
-      connectedTeams: Array.from(connectedTeams) 
-    });
-  });
-
-  socket.on('resetAuction', async () => {
-    if (!socket.isAuctioneer) {
-      socket.emit('error', 'Only auctioneer can reset the auction');
-      return;
-    }
-    
-    console.log('Auctioneer requested auction reset');
-    
-    try {
-      await resetAuction();
-    } catch (error) {
-      console.error('Error during auction reset:', error);
-      socket.emit('error', 'Failed to reset auction. Please try again.');
-    }
-  });
-
-  socket.on('joinAsTeam', (teamId) => {
-    console.log(`Team ${teamId} attempting to connect:`, socket.id);
-    
-    if (!isValidTeamId(teamId)) {
-      socket.emit('error', 'Invalid team ID');
+    const teamIndex = teamId - 1;
+    if (teams[teamIndex].socketId && teams[teamIndex].isConnected) {
+      socket.emit('forceDisconnect', `Team ${teamId} is already connected.`);
       return;
     }
 
-    const existingTeam = teams[teamId - 1];
-    if (existingTeam.socketId && existingTeam.socketId !== socket.id) {
-      io.to(existingTeam.socketId).emit('forceDisconnect', 'Another device connected for your team');
-    }
-    
-    socket.join(`team-${teamId}`);
-    socket.teamId = teamId;
-    teams[teamId - 1].isConnected = true;
-    teams[teamId - 1].socketId = socket.id;
+    teams[teamIndex].socketId = socket.id;
+    teams[teamIndex].isConnected = true;
     connectedTeams.add(teamId);
-    
-    console.log(`Team ${teamId} connected successfully`);
-    emitUpdate();
-    io.emit('connectionStatus', { 
-      auctioneerConnected, 
-      connectedTeams: Array.from(connectedTeams) 
+    socket.join(`team${teamId}`);
+    console.log(`Team ${teamId} connected: ${socket.id}`);
+
+    socket.emit('connectionStatus', {
+      connectedTeams: Array.from(connectedTeams),
+      auctioneerConnected
+    });
+
+    socket.emit('update', {
+      teams: teams.map(team => ({
+        ...team,
+        socketId: undefined
+      })),
+      myTeam: { ...teams[teamIndex], socketId: undefined },
+      currentPlayer: getCurrentPlayer(),
+      currentBid,
+      currentBidTeam,
+      isReAuction,
+      currentPlayerIndex,
+      totalPlayers: players.length,
+      connectedTeams: Array.from(connectedTeams),
+      auctioneerConnected,
+      nextIncrement: getCurrentPlayer() 
+        ? (currentBid === 0 ? getIncrement(getCurrentPlayer().basePrice) : getIncrement(currentBid))
+        : 0,
+      allPlayers
+    });
+
+    io.emit('connectionStatus', {
+      connectedTeams: Array.from(connectedTeams),
+      auctioneerConnected
     });
   });
 
   socket.on('joinAsObserver', () => {
-    console.log('Observer connected:', socket.id);
-    socket.join('observers');
-    socket.isObserver = true;
+    socket.join('observer');
+    console.log(`Observer connected: ${socket.id}`);
     emitUpdate();
   });
 
-  // Auctioneer-only bidding
   socket.on('placeBidForTeam', (teamId) => {
-    if (!socket.isAuctioneer) {
+    if (!socket.rooms.has('auctioneer')) {
       socket.emit('error', 'Only auctioneer can place bids');
       return;
     }
@@ -592,305 +455,246 @@ io.on('connection', (socket) => {
       return;
     }
 
-    const player = getCurrentPlayer();
-    if (!player) {
+    const team = teams[teamId - 1];
+    const currentPlayer = getCurrentPlayer();
+    if (!currentPlayer) {
       socket.emit('error', 'No player available for bidding');
       return;
     }
 
-    const newBid = currentBid === 0 ? player.basePrice : currentBid + getIncrement(currentBid);
-    const validation = validateBid(teamId, newBid);
-    
-    if (!validation.valid) {
-      socket.emit('error', `Cannot place bid for Team ${teamId}: ${validation.reason}`);
+    const newBid = currentBid === 0 ? currentPlayer.basePrice : currentBid + getIncrement(currentBid);
+
+    if (team.players.length >= 8) {
+      socket.emit('error', `Team ${teamId} has reached maximum players (8)`);
       return;
     }
+
+    if (team.remaining < newBid) {
+      socket.emit('error', `Team ${teamId} has insufficient funds`);
+      return;
+    }
+
+    // Create snapshot before placing bid
+    createAuctionSnapshot('BEFORE_BID', {
+      playerName: currentPlayer.name,
+      teamId,
+      amount: newBid,
+      teamName: team.name
+    });
 
     currentBid = newBid;
     currentBidTeam = teamId;
 
-    console.log(`Auctioneer placed bid: Team ${teamId}, Amount: ₹${(newBid/100000).toFixed(2)}L, Player: ${player.name}`);
-
     io.emit('bidPlaced', {
       teamId,
-      teamName: teams[teamId - 1].name,
+      teamName: team.name,
       amount: newBid,
-      playerName: player.name,
-      placedByAuctioneer: true
+      playerName: currentPlayer.name
     });
 
     emitUpdate();
   });
 
-  // Sell player with individual synergy calculation and status update
   socket.on('soldPlayer', () => {
-    if (!socket.isAuctioneer) {
-      socket.emit('error', 'Only auctioneer can mark players as sold');
+    if (!socket.rooms.has('auctioneer')) {
+      socket.emit('error', 'Only auctioneer can sell players');
       return;
     }
-    
+
+    const currentPlayer = getCurrentPlayer();
+    if (!currentPlayer) {
+      socket.emit('error', 'No player available to sell');
+      return;
+    }
+
     if (!currentBidTeam || currentBid === 0) {
       socket.emit('error', 'No valid bid to complete sale');
       return;
     }
-    
-    if (!isValidTeamId(currentBidTeam)) {
-      socket.emit('error', 'Invalid bidding team');
-      return;
-    }
-    
-    const team = teams[currentBidTeam - 1];
-    const player = getCurrentPlayer();
-    
-    if (!player || !team) {
-      socket.emit('error', 'Invalid player or team');
-      return;
-    }
-    
+
+    const teamIndex = currentBidTeam - 1;
+    const team = teams[teamIndex];
+
     if (team.remaining < currentBid) {
-      socket.emit('error', 'Insufficient team budget');
+      socket.emit('error', `Team ${currentBidTeam} has insufficient funds`);
       return;
     }
-    
-    // CREATE SNAPSHOT BEFORE MAKING CHANGES
-    createAuctionSnapshot('BEFORE_SOLD', {
-      playerName: player.name,
-      teamId: currentBidTeam,
-      amount: currentBid
-    });
-    
-    // Complete the sale
-    team.remaining -= currentBid;
-    team.spent += currentBid;
-    
-    const playerWithSynergy = { 
-      ...player, 
+
+    team.players.push({
+      ...currentPlayer,
       boughtPrice: currentBid,
-      individualSynergy: calculatePlayerSynergy(player, [...team.players, player])
-    };
-    
-    team.players.push(playerWithSynergy);
+      individualSynergy: calculatePlayerSynergy(currentPlayer, [...team.players, currentPlayer])
+    });
+
+    team.spent += currentBid;
+    team.remaining -= currentBid;
     team.synergy = calculateSynergy(team.players);
-    updatePlayerStatus(player.sNo, 'sold', currentBidTeam, currentBid);
-  
-    console.log(`Player sold: ${player.name} to Team ${currentBidTeam} for ₹${(currentBid/100000).toFixed(2)}L`);
-  
+
+    updatePlayerStatus(currentPlayer.sNo, 'sold', currentBidTeam, currentBid);
+
     io.emit('playerSold', {
-      player: playerWithSynergy,
+      player: currentPlayer,
       teamId: currentBidTeam,
       teamName: team.name,
       amount: currentBid
     });
-  
-    // Move to next player
-    currentPlayerIndex++;
+
     currentBid = 0;
     currentBidTeam = null;
-  
-    // Check for set completion or auction end
-    const playersPerSet = Math.ceil(players.length / 3);
-    if (currentPlayerIndex % playersPerSet === 0 && !isReAuction) {
+    currentPlayerIndex++;
+
+    if (!isReAuction && currentPlayerIndex >= players.length && unsold.length > 0) {
+      isReAuction = true;
+      reAuctionUnsold = [...unsold];
+      unsold = [];
+      currentPlayerIndex = 0;
+      io.emit('reAuctionStart', { unsoldCount: reAuctionUnsold.length });
+    } else if (currentPlayerIndex >= (isReAuction ? reAuctionUnsold.length : players.length)) {
+      const winner = teams.reduce((best, team) => {
+        return team.synergy > (best?.synergy || -Infinity) ? team : best;
+      }, null);
+      io.emit('auctionComplete', { winner });
+    }
+
+    if (currentPlayerIndex > 0 && currentPlayerIndex % Math.ceil(players.length / 3) === 0 && !isReAuction) {
       io.emit('setSummary', teams);
     }
-    
-    if (currentPlayerIndex >= players.length && !isReAuction) {
-      handleReAuction();
-    } else if (isReAuction && currentPlayerIndex >= reAuctionUnsold.length) {
-      declareWinner();
-    }
-    
+
     emitUpdate();
   });
 
   socket.on('skipPlayer', () => {
-    if (!socket.isAuctioneer) {
+    if (!socket.rooms.has('auctioneer')) {
       socket.emit('error', 'Only auctioneer can skip players');
       return;
     }
 
-    const player = getCurrentPlayer();
-    if (!player) {
+    const currentPlayer = getCurrentPlayer();
+    if (!currentPlayer) {
       socket.emit('error', 'No player available to skip');
       return;
     }
-    
-    // CREATE SNAPSHOT BEFORE MAKING CHANGES
-    createAuctionSnapshot('BEFORE_SKIP', {
-      playerName: player.name,
-      currentBid: currentBid,
-      currentBidTeam: currentBidTeam
-    });
 
-    unsold.push(player);
-    updatePlayerStatus(player.sNo, 'available');
-    
-    console.log(`Player skipped: ${player.name}`);
-    io.emit('playerSkipped', { 
-      player, 
-      reason: 'No bids received' 
-    });
+    unsold.push(currentPlayer);
+    updatePlayerStatus(currentPlayer.sNo, 'unsold');
 
-    currentPlayerIndex++;
+    io.emit('playerSkipped', { player: currentPlayer });
+
     currentBid = 0;
     currentBidTeam = null;
+    currentPlayerIndex++;
 
-    const playersPerSet = Math.ceil(players.length / 3);
-    if (currentPlayerIndex % playersPerSet === 0 && !isReAuction) {
+    if (!isReAuction && currentPlayerIndex >= players.length && unsold.length > 0) {
+      isReAuction = true;
+      reAuctionUnsold = [...unsold];
+      unsold = [];
+      currentPlayerIndex = 0;
+      io.emit('reAuctionStart', { unsoldCount: reAuctionUnsold.length });
+    } else if (currentPlayerIndex >= (isReAuction ? reAuctionUnsold.length : players.length)) {
+      const winner = teams.reduce((best, team) => {
+        return team.synergy > (best?.synergy || -Infinity) ? team : best;
+      }, null);
+      io.emit('auctionComplete', { winner });
+    }
+
+    if (currentPlayerIndex > 0 && currentPlayerIndex % Math.ceil(players.length / 3) === 0 && !isReAuction) {
       io.emit('setSummary', teams);
     }
-    
-    if (currentPlayerIndex >= players.length && !isReAuction) {
-      handleReAuction();
-    } else if (isReAuction && currentPlayerIndex >= reAuctionUnsold.length) {
-      declareWinner();
-    }
-    
+
     emitUpdate();
   });
 
   socket.on('resetBid', () => {
-    if (!socket.isAuctioneer) {
+    if (!socket.rooms.has('auctioneer')) {
       socket.emit('error', 'Only auctioneer can reset bids');
       return;
     }
 
-    const player = getCurrentPlayer();
-    if (player) {
-      currentBid = 0;
-      currentBidTeam = null;
-      console.log(`Bid reset for player: ${player.name}`);
-      io.emit('bidReset', { 
-        playerName: player.name, 
-        message: 'Bidding reset to base price' 
-      });
-      emitUpdate();
+    const currentPlayer = getCurrentPlayer();
+    if (!currentPlayer) {
+      socket.emit('error', 'No player available to reset bid');
+      return;
     }
+
+    currentBid = 0;
+    currentBidTeam = null;
+
+    io.emit('bidReset', { playerName: currentPlayer.name });
+    emitUpdate();
   });
 
-  // NEW: Add the undo handler
   socket.on('undoLastAction', () => {
-    if (!socket.isAuctioneer) {
+    if (!socket.rooms.has('auctioneer')) {
       socket.emit('error', 'Only auctioneer can undo actions');
       return;
     }
-    
+
     if (auctionHistory.length === 0) {
       socket.emit('error', 'No actions to undo');
       return;
     }
-    
-    // Get the most recent snapshot (which should be the "BEFORE_" snapshot)
+
     const lastSnapshot = auctionHistory.pop();
-    
-    if (!lastSnapshot || !lastSnapshot.action.startsWith('BEFORE_')) {
-      socket.emit('error', 'Invalid undo state - cannot restore');
+    if (!lastSnapshot || lastSnapshot.action !== 'BEFORE_BID') {
+      socket.emit('error', 'No valid bid action to undo');
       return;
     }
-    
-    // Restore the auction state
-    const restored = restoreAuctionSnapshot(lastSnapshot);
-    
-    if (restored) {
-      const actionType = lastSnapshot.action.replace('BEFORE_', '');
-      const playerName = lastSnapshot.playerData?.playerName || 'Unknown';
-      
-      console.log(`Undo successful: Reverted ${actionType} for ${playerName}`);
-      
-      io.emit('undoCompleted', {
-        action: actionType,
-        playerName: playerName,
-        message: `Successfully undid ${actionType.toLowerCase()} action for ${playerName}`
+
+    const success = restoreAuctionSnapshot(lastSnapshot);
+    if (success) {
+      socket.emit('undoCompleted', {
+        playerName: lastSnapshot.playerData?.playerName || 'unknown player'
       });
-      
       emitUpdate();
     } else {
-      socket.emit('error', 'Failed to undo - auction state could not be restored');
+      socket.emit('error', 'Failed to undo bid action');
     }
+  });
+
+  socket.on('resetAuction', () => {
+    if (!socket.rooms.has('auctioneer')) {
+      socket.emit('error', 'Only auctioneer can reset auction');
+      return;
+    }
+
+    loadPlayers().catch(err => {
+      console.error('Error resetting auction:', err);
+      socket.emit('error', 'Failed to reset auction');
+    });
+    auctionHistory = [];
+    io.emit('auctionReset');
   });
 
   socket.on('disconnect', () => {
-    console.log('Client disconnected:', socket.id);
-
-    if (socket.isAuctioneer) {
+    console.log(`Disconnected: ${socket.id}`);
+    
+    if (socket.rooms.has('auctioneer')) {
       auctioneerConnected = false;
-      io.emit('connectionStatus', { 
-        auctioneerConnected, 
-        connectedTeams: Array.from(connectedTeams) 
+      io.emit('connectionStatus', {
+        connectedTeams: Array.from(connectedTeams),
+        auctioneerConnected
       });
     }
 
-    if (socket.teamId) {
-      const teamIndex = socket.teamId - 1;
-      if (teams[teamIndex] && teams[teamIndex].socketId === socket.id) {
-        teams[teamIndex].isConnected = false;
-        teams[teamIndex].socketId = null;
-        connectedTeams.delete(socket.teamId);
-        io.emit('connectionStatus', { 
-          auctioneerConnected, 
-          connectedTeams: Array.from(connectedTeams) 
-        });
-      }
+    const teamIndex = teams.findIndex(team => team.socketId === socket.id);
+    if (teamIndex !== -1) {
+      teams[teamIndex].socketId = null;
+      teams[teamIndex].isConnected = false;
+      connectedTeams.delete(teams[teamIndex].id);
+      io.emit('connectionStatus', {
+        connectedTeams: Array.from(connectedTeams),
+        auctioneerConnected
+      });
     }
-    emitUpdate();
   });
-
-  emitUpdate();
 });
 
-function handleReAuction() {
-  const needyTeams = teams.filter(t => t.players.length < 8);
-  if (needyTeams.length === 0 || unsold.length === 0) {
-    console.log('No teams need more players or no unsold players available');
-    declareWinner();
-    return;
-  }
-
-  console.log(`Starting re-auction with ${unsold.length} unsold players`);
-  reAuctionUnsold = [...unsold].sort(() => Math.random() - 0.5);
-  currentPlayerIndex = 0;
-  isReAuction = true;
-
-  io.emit('reAuctionStart', {
-    unsoldCount: reAuctionUnsold.length,
-    needyTeams: needyTeams.map(t => t.name)
-  });
-  emitUpdate();
-}
-
-function declareWinner() {
-  console.log('Auction completed - calculating winner');
-  const sortedTeams = [...teams].sort((a, b) => {
-    const synergyA = Number.isFinite(a.synergy) ? a.synergy : 0;
-    const synergyB = Number.isFinite(b.synergy) ? b.synergy : 0;
-    
-    if (synergyB !== synergyA) return synergyB - synergyA;
-    return b.remaining - a.remaining;
-  });
-  
-  console.log('Final standings:', sortedTeams.map(t => 
-    `${t.name}: ${Number.isFinite(t.synergy) ? t.synergy.toFixed(1) : 0} synergy`
-  ));
-  
-  io.emit('auctionComplete', { 
-    winner: sortedTeams[0], 
-    standings: sortedTeams 
-  });
-}
-
+// Start server
 const PORT = process.env.PORT || 5000;
-
-server.listen(PORT, async () => {
+server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
-  console.log('Auctioneer-Only Bidding Mode:');
-  console.log('- Auctioneer: Controls all bidding via team selection');
-  console.log('- Teams: View-only displays with roster and synergy');
-  console.log('- Bidding: Only auctioneer can place bids for teams');
-  console.log('- All Players: Real-time status tracking enabled');
-  console.log('Environment:', process.env.NODE_ENV || 'development');
-  
-  try {
-    await loadPlayers();
-  } catch (error) {
-    console.error('Failed to load players on startup:', error);
-  }
+  loadPlayers().catch(err => {
+    console.error('Failed to load players:', err);
+    process.exit(1);
+  });
 });
