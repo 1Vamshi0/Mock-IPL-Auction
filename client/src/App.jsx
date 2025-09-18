@@ -1584,7 +1584,16 @@ function AppContent() {
             Join as Observer
           </button>
           <div className="text-xs text-gray-500 mt-6 p-2 bg-gray-50 rounded-lg">
-            <div>Backend: <code className="bg-gray-200 px-1 rounded">{backendUrl}</code></div>
+           <div>Backend :
+              <a 
+                href= {backendUrl} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="bg-gray-200 px-1 rounded text-blue-600 hover:text-blue-800 underline font-mono text-xs"
+              >
+                {backendUrl}
+              </a>
+            </div>
             <div className="mt-1">
               Status: {isConnected ? '🟢 Ready' : '🔴 Not Connected'}
             </div>

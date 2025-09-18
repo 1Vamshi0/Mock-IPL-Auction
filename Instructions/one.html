@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>CPL Auction — Official Rules</title>
+  <title>CPL Auction – Official Rules</title>
 
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
@@ -38,53 +38,73 @@
       title: 'Player Categories',
       icon: '🏷️',
       brief: 'Players are grouped into four tiers: Elite, Premium, Solid, and Budget.',
-      content: `Players are categorized into four tiers based on their score and approximate value:
-- <strong>Elite:</strong> Score 91–100 (Approx. value ≈₹4 Cr)
-- <strong>Premium:</strong> Score 81–90 (Approx. value ≈₹2 Cr)
-- <strong>Solid:</strong> Score 66–80 (Approx. value ≈₹70 Lakh)
-- <strong>Budget:</strong> Score 50–65 (Approx. value ≈₹30 Lakh)
+      content: `Players are categorized into four tiers based on their scores, which also determines their starting bid price:
+- <strong>Elite:</strong> Score 91–100 => Value ₹4 Cr ≈ 400 Lakh
+- <strong>Premium:</strong> Score 81–90 => Value ₹2 Cr ≈ 200 Lakh
+- <strong>Solid:</strong> Score 66–80 => Value ₹70 Lakh
+- <strong>Budget:</strong> Score 50–65 => Value ₹30 Lakh
 `
-    },
-    {
-      title: 'Player Archetypes',
-      icon: '🧩',
-      brief: 'Each player has an archetype that affects team synergy.',
-      content: `Understanding archetypes is key to building a high-synergy team. Here are the archetypes you will encounter in the auction:
-        <ul>
-          <li><strong>BA:</strong> Batting All-Rounder</li>
-          <li><strong>WK:</strong> Wicket-Keeper + Batsman</li>
-          <li><strong>AO:</strong> Aggressive Opener Batsman</li>
-          <li><strong>AN:</strong> Anchor Batsman</li>
-          <li><strong>FI:</strong> Finisher Batsman</li>
-          <li><strong>PA:</strong> Pace Bowler</li>
-          <li><strong>SP:</strong> Spin Bowler</li>
-          <li><strong>CS:</strong> Containment Specialist Bowler</li>
-          <li><strong>BO:</strong> Bowling All-Rounder</li>
-        </ul>`
     },
     {
       title: 'Bidding Rules & Increments',
       icon: '📣',
       brief: 'The auctioneer manages the bidding. Bid increments are fixed.',
       content: `The auctioneer will announce a player to open the bidding window. The minimum bid increments are determined by the player's current price:
-- Under ₹50 Lakh  → increments of ₹5 Lakh.
-- ₹50 Lakh – 1 Cr → increments of ₹10 Lakh.
-- ₹1 Cr – 2 Cr → increments of ₹20 Lakh.
-- Above ₹2 Cr → increments of ₹50 Lakh.
-All bids submitted must follow these specified increment rules.`
-    },
-    {
-      title: 'Team Scoring & Synergy',
-      icon: '🏆',
-      brief: 'Final scores are calculated from player scores plus a synergy bonus.',
-      content: `A team's final score is calculated by summing the individual scores of all eight players and then adding a synergy bonus. The synergy bonus is an additional score automatically calculated by the system based on the combination of player archetypes (e.g., batsmen, bowlers, allrounders) in your final squad.
-      <br><br>Final Team Score= <strong>Sum of 8 players Base_Score + Positive_Synergy_Bonus -Negative_Synergy_Bonus</strong>`
+      <strong>- Under ₹50 Lakh</strong>  → increments of ₹5 Lakh.
+      <strong>- ₹50 Lakh – 1 Cr </strong>→ increments of ₹10 Lakh.
+      <strong>- ₹1 Cr – 2 Cr </strong>→ increments of ₹20 Lakh.
+      <strong>- Above ₹2 Cr </strong>→ increments of ₹50 Lakh.`
     },
     {
       title: 'Auction Flow & Tiebreakers',
       icon: '🔄',
       brief: 'The auction has two phases: Main Auction and Re-Auction.',
-      content: `The event proceeds in two phases. The <strong>Main Auction</strong> is where the primary list of players is presented. Any players who remain unsold after this phase will move to the <strong>Re-Auction</strong> phase. After the Re-Auction concludes, final team scores are calculated. In the event of a tie in the final scores, the team with the higher remaining budget will be declared the winner.`
+      content: `The event proceeds in two phases. The <strong>Main Auction</strong> is where the primary list of players is presented. Any players who remain unsold after this phase will move to the <strong>Re-Auction</strong> phase. In the Re-Auction, teams can bid on these unsold players to complete their squads.`
+    },
+    {
+      title: 'Player Archetypes',
+      icon: '🧩',
+      brief: 'Each player has an archetype that affects team synergy.',
+      content: `Understanding archetypes is key to building a high-synergy team. Here are the archetypes you will encounter in the auction:
+      <br><strong>🏏 Batsman Category:</strong>
+      <ul>
+        <li><strong>BA:</strong> Batting All-Rounder</li>
+        <li><strong>WK:</strong> Wicket-Keeper</li>
+        <li><strong>AO:</strong> Aggressive Opener</li>
+        <li><strong>AN:</strong> Anchor</li>
+        <li><strong>FI:</strong> Finisher</li>
+      </ul>
+      <strong>⚾ Bowler Category:</strong>
+      <ul>
+        <li><strong>PA:</strong> Pace Bowler</li>
+        <li><strong>SP:</strong> Spin Bowler</li>
+        <li><strong>CS:</strong> Containment Specialist</li>
+        <li><strong>BO:</strong> Bowling All-Rounder</li>
+      </ul>`
+    },
+
+    {
+      title: 'Understanding Synergy System',
+      icon: '⚡',
+      brief: 'Smart archetype combinations boost your team score significantly.',
+      content: `Synergy is the secret to building a championship-winning team! When certain player archetypes are paired together, they create powerful bonuses or penalties that can dramatically impact your final score.
+      <br><br><strong>Positive Synergy Examples:</strong>
+      - AO + AN (Aggressive Opener + Anchor): +20 points
+      - BA + FI (Batting All-Rounder + Finisher): +15 points
+      - PA + SP (Pace Bowler + Spin Bowler): +25 points
+      <br><br><strong>Negative Synergy Examples:</strong>
+      - AO + AO (Two Aggressive Openers): -15 points
+      - FI + FI (Two Finishers): -10 points
+      <br><br><strong>📋 Check out the printed synergy combo sheet</strong> provided at your table for the complete list of all positive and negative combinations!`
+    },
+    {
+      title: 'Final Score Calculation',
+      icon: '🏆',
+      brief: 'Your team\'s final score combines base scores with synergy bonuses/penalties.',
+      content: `Your team's final score is calculated using this formula:
+      <br><br><strong>Final Team Score= Sum of 8 Players Base Scores + (Positive Synergy Bonuses -Negative Synergy Penalties)</strong>
+      <br><br><strong>Example:</strong> If your 8 players have base scores totaling 640 points, +35 from positive synergy combinations, and -10 from negative combinations, your final score would be: 640 + 35 -10 = <strong>665 points</strong>
+      <br><br>In case of tied final scores, the team with the <strong>higher remaining budget</strong> will be declared the winner. This rewards both strategic team building and smart budget management!`
     }
   ];
 
@@ -184,7 +204,7 @@ All bids submitted must follow these specified increment rules.`
 
           <div className="flex items-center justify-between mb-4">
             <div>
-              <div className="text-2xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-pink-500 to-orange-400">CPL Auction — Official Rules</div>
+              <div className="text-2xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-pink-500 to-orange-400">CPL Auction – Official Rules</div>
               <div className="text-sm text-gray-600 mt-1">A simple walkthrough of the auction rules.</div>
             </div>
             <div className="text-sm text-gray-700">Step <strong>{index+1}</strong> of {slides.length}</div>
@@ -214,7 +234,7 @@ All bids submitted must follow these specified increment rules.`
                 {index<slides.length-1 ? (
                   <button onClick={goNext} className="px-5 py-2 rounded-full font-bold bg-gradient-to-r from-pink-500 to-orange-400 text-white shadow">Next →</button>
                 ) : (
-                  <button id="readyBtn" onClick={()=>{ if(window.__spawnConfetti) window.__spawnConfetti(window.innerWidth*0.5); setTimeout(()=> window.location.href='https://storm-cpl.netlify.app/', 1200)}} className="px-5 py-2 rounded-full font-bold bg-gradient-to-r from-green-500 to-lime-500 text-white shadow">I Understand — Let's Go!</button>
+                  <button id="readyBtn" onClick={()=>{ if(window.__spawnConfetti) window.__spawnConfetti(window.innerWidth*0.5); setTimeout(()=> window.location.href='https://storm-cpl.netlify.app/', 1200)}} className="px-5 py-2 rounded-full font-bold bg-gradient-to-r from-green-500 to-lime-500 text-white shadow">I Understand – Let's Go!</button>
                 )}
               </div>
             </div>
