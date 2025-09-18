@@ -1036,7 +1036,7 @@ function AppContent() {
                         </div>
                       ) : (
                         <div>
-                          <div className="text-slate-600 text-sm mb-2">Current Highest Bid</div>
+                          <div className="text-slate-600 text-lg mb-2">Current Highest Bid</div>
                           <div className="current-bid-amount">
                             {fmtL(state.currentBid)}
                           </div>
@@ -1044,7 +1044,7 @@ function AppContent() {
                             Team {state.currentBidTeam}
                           </div>
                           {nextUpAmount > 0 && (
-                            <div className="text-slate-500 text-xs">
+                            <div className="text-slate-500 text-lg">
                               Next bid: {fmtL(nextUpAmount)}
                             </div>
                           )}
@@ -1077,7 +1077,7 @@ function AppContent() {
                         <div className="flex items-center justify-between w-full mb-3">
                           <div className="team-name-large">{team.name}</div>
                           {state.currentBidTeam === team.id && (
-                            <span className="text-xs bg-orange-400 text-white px-2 py-1 rounded-full font-bold">
+                            <span className="text-xs bg-orange-400  px-2 py-1 rounded-full font-bold">
                               Highest
                             </span>
                           )}
