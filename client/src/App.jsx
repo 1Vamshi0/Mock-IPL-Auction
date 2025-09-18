@@ -1036,16 +1036,16 @@ function AppContent() {
                         </div>
                       ) : (
                         <div>
-                          <div className="text-slate-600 text-lg mb-2">Current Highest Bid</div>
+                          <div className="text-black text-lg mb-2"><strong>Current Highest Bid</strong></div>
                           <div className="current-bid-amount">
                             {fmtL(state.currentBid)}
                           </div>
-                          <div className="text-lg font-semibold text-orange-500 mb-2">
+                          <div className="text-xl font-semibold text-orange-500 mb-2">
                             Team {state.currentBidTeam}
                           </div>
                           {nextUpAmount > 0 && (
                             <div className="text-slate-500 text-lg">
-                              Next bid: {fmtL(nextUpAmount)}
+                              <strong>Next bid: {fmtL(nextUpAmount)}</strong>
                             </div>
                           )}
                         </div>
@@ -1075,7 +1075,7 @@ function AppContent() {
                         className={`team-bid-card ${state.currentBidTeam === team.id ? 'current-highest' : ''}`}
                       >
                         <div className="flex items-center justify-between w-full mb-3">
-                          <div className="team-name-large">{team.name}</div>
+                          <div className="team-name-large">{team.name}</div><br></br>
                           {state.currentBidTeam === team.id && (
                             <span className="text-xs bg-orange-400  px-2 py-1 rounded-full font-bold">
                               Highest
@@ -1386,7 +1386,7 @@ function AppContent() {
                       </div>
                     ) : (
                       <div>
-                        <span className="text-gray-600">Current highest bid: </span>
+                        <span className="text-black">Current highest bid: </span>
                         <span className="font-bold">{fmtL(state.currentBid)}</span>
                         {state.currentBidTeam && (
                           <span className={`ml-2 ${myCurrentBid ? 'text-green-600' : 'text-orange-600'}`}>
