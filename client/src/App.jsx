@@ -1115,7 +1115,8 @@ function AppContent() {
             </div>
           )}
         </main>
-
+        
+        {/* ==================== START OF CHANGES ==================== */}
         <div className="control-panel-modern">
           <div className="control-buttons-grid">
             <button
@@ -1142,19 +1143,30 @@ function AppContent() {
               <span>🔄</span>
               {isLoading ? 'PROCESSING...' : 'RESET BID'}
             </button>
-            
-            {state.currentPlayerIndex >= 48 && (
-              <button
-                onClick={resetAuction}
-                disabled={isLoading || !isConnected}
-                className="control-button-modern btn-danger"
-              >
-                <span>🧹</span>
-                {isLoading ? 'PROCESSING...' : 'RESET AUCTION'}
-              </button>
-            )}
+
+            {/* --- ADDED THIS BUTTON --- */}
+            <button
+              onClick={undoLastAction}
+              disabled={isLoading || !isConnected}
+              className="control-button-modern btn-undo"
+            >
+              <span>↩️</span>
+              {isLoading ? 'PROCESSING...' : 'UNDO ACTION'}
+            </button>
+
+            {/* --- ALWAYS VISIBLE NOW --- */}
+            <button
+              onClick={resetAuction}
+              disabled={isLoading || !isConnected}
+              className="control-button-modern btn-danger"
+            >
+              <span>🧹</span>
+              {isLoading ? 'PROCESSING...' : 'RESET AUCTION'}
+            </button>
           </div>
         </div>
+        {/* ==================== END OF CHANGES ==================== */}
+
       </div>
     );
   }
