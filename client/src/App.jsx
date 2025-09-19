@@ -1151,7 +1151,7 @@ function AppContent() {
               className="control-button-modern btn-undo"
             >
               <span>↩️</span>
-              {isLoading ? 'PROCESSING...' : 'UNDO ACTION'}
+              {isLoading ? 'PROCESSING...' : 'UNDO SELL'}
             </button>
 
             {/* --- ALWAYS VISIBLE NOW --- */}
